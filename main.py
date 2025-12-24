@@ -70,6 +70,10 @@ class HandGestureMouseControl:
         self.last_click_time = 0
         self.click_cooldown = 0.5  # seconds between clicks
         
+        # Scroll detection
+        self.last_scroll_time = 0
+        self.scroll_cooldown = 0.1  # seconds between scroll actions
+        
         # Create GUI
         self.create_gui()
         
@@ -153,7 +157,9 @@ class HandGestureMouseControl:
         - Calibrate: Set hand position range (optional)
         
         Gestures:
+        - Right Hand Thumb Up: Scroll up
         - Right Hand Pointing: Move mouse cursor
+        - Left Hand Thumb Up: Scroll down
         - Left Hand Pinch: Left click
         - Left Hand Pointing: Detected (no action)
         """
@@ -221,6 +227,26 @@ class HandGestureMouseControl:
         distance = self.calculate_distance(thumb_tip, index_tip)
         return distance < self.click_threshold
         
+    def is_thumb_up(self, landmarks):
+        """Check if thumb is extended upward (thumb up gesture)"""
+        # Thumb tip should be above thumb IP joint (thumb extended upward)
+        thumb_tip = landmarks[4]
+        thumb_ip = landmarks[3]
+        
+        # For thumb up, thumb tip should be significantly above thumb IP
+        if thumb_tip.y >= thumb_ip.y:  # Thumb tip is not above IP
+            return False
+        
+        # Other fingers should be closed (fist-like but with thumb up)
+        finger_tips = [8, 12, 16, 20]  # Index, Middle, Ring, Pinky
+        finger_pips = [6, 10, 14, 18]
+        
+        for tip, pip in zip(finger_tips, finger_pips):
+            if landmarks[tip].y < landmarks[pip].y:  # Tip is above PIP (finger extended)
+                return False
+        
+        return True
+    
     def is_pointing(self, landmarks):
         """Check if only index finger is extended (pointing gesture)"""
         # Index finger should be extended
@@ -266,8 +292,16 @@ class HandGestureMouseControl:
         try:
             # RIGHT HAND GESTURES
             if is_right_hand:
+                current_time = time.time()
+                
+                # Right hand thumb up - Scroll up
+                if self.is_thumb_up(landmarks):
+                    if current_time - self.last_scroll_time > self.scroll_cooldown:
+                        pyautogui.scroll(3)  # Scroll up
+                        self.last_scroll_time = current_time
+                
                 # Right hand pointing - Move mouse cursor (relative movement)
-                if self.is_pointing(landmarks):
+                elif self.is_pointing(landmarks):
                     index_tip = landmarks[8]
                     # Get finger position in normalized coordinates (0-1 range)
                     # Flip x coordinate to match mirrored display
@@ -313,8 +347,14 @@ class HandGestureMouseControl:
             elif is_left_hand:
                 current_time = time.time()
                 
+                # Left hand thumb up - Scroll down
+                if self.is_thumb_up(landmarks):
+                    if current_time - self.last_scroll_time > self.scroll_cooldown:
+                        pyautogui.scroll(-3)  # Scroll down
+                        self.last_scroll_time = current_time
+                
                 # Left hand pinch - Left click
-                if self.is_pinch(landmarks):
+                elif self.is_pinch(landmarks):
                     if current_time - self.last_click_time > self.click_cooldown:
                         pyautogui.click()
                         self.last_click_time = current_time
@@ -410,12 +450,16 @@ class HandGestureMouseControl:
                         text_y = 30 + (idx * 30)  # Offset for multiple hands
                         
                         if is_right_hand:
-                            if self.is_pointing(hand_landmarks):
+                            if self.is_thumb_up(hand_landmarks):
+                                gesture_text = f"{hand_label} Hand: THUMB UP - Scroll Up"
+                            elif self.is_pointing(hand_landmarks):
                                 gesture_text = f"{hand_label} Hand: POINTING - Mouse Move"
                             else:
                                 gesture_text = f"{hand_label} Hand: Other Gesture"
                         elif is_left_hand:
-                            if self.is_pinch(hand_landmarks):
+                            if self.is_thumb_up(hand_landmarks):
+                                gesture_text = f"{hand_label} Hand: THUMB UP - Scroll Down"
+                            elif self.is_pinch(hand_landmarks):
                                 gesture_text = f"{hand_label} Hand: PINCH - Left Click"
                             elif self.is_pointing(hand_landmarks):
                                 gesture_text = f"{hand_label} Hand: POINTING - Detected"
