@@ -57,12 +57,18 @@ class HandGestureMouseControl:
         self.calibration_active = False
         
         # Control parameters
-        self.smoothing_factor = 0.85  # Higher value = more smoothing (0.85 = 85% of previous position)
-        self.last_x, self.last_y = 0, 0
-        self.movement_threshold = 3  # Minimum pixels to move before updating (reduces jitter)
-        self.raw_x, self.raw_y = 0, 0  # Track raw (unsmoothed) position
-        self.stationary_threshold = 2  # Pixels - if raw movement is less than this, consider hand stationary
+        self.smoothing_factor = 0.85  # Higher value = more smoothing
+        self.movement_threshold = 0.001  # Minimum normalized movement (0-1 range) to trigger mouse movement
+        self.sensitivity = 3.0  # Multiplier for finger movement to mouse movement (higher = more sensitive)
+        self.last_finger_x = None  # Previous finger position in normalized coordinates (0-1)
+        self.last_finger_y = None
+        self.smoothed_dx = 0.0  # Smoothed movement delta
+        self.smoothed_dy = 0.0
         
+        # Click detection
+        self.click_threshold = 0.03  # Distance threshold for pinch gesture (thumb to index finger)
+        self.last_click_time = 0
+        self.click_cooldown = 0.5  # seconds between clicks
         
         # Create GUI
         self.create_gui()
@@ -148,6 +154,7 @@ class HandGestureMouseControl:
         
         Gestures:
         - Right Hand Pointing: Move mouse cursor
+        - Left Hand Pinch: Left click
         - Left Hand Pointing: Detected (no action)
         """
         self.instructions_label = ttk.Label(
@@ -186,6 +193,11 @@ class HandGestureMouseControl:
         if self.is_control_active:
             self.control_btn.config(text="Disable Mouse Control")
             self.status_label.config(text="Status: Mouse Control Active", foreground="blue")
+            # Reset finger tracking when enabling control
+            self.last_finger_x = None
+            self.last_finger_y = None
+            self.smoothed_dx = 0.0
+            self.smoothed_dy = 0.0
         else:
             self.control_btn.config(text="Enable Mouse Control")
             self.status_label.config(text="Status: Camera On", foreground="green")
@@ -194,6 +206,20 @@ class HandGestureMouseControl:
         self.calibration_active = True
         self.calibration_frame = None
         self.status_label.config(text="Status: Calibrating - Move hand around", foreground="orange")
+    
+    def calculate_distance(self, point1, point2):
+        """Calculate 3D distance between two points"""
+        dx = point1.x - point2.x
+        dy = point1.y - point2.y
+        dz = point1.z - point2.z if hasattr(point1, 'z') and hasattr(point2, 'z') else 0
+        return np.sqrt(dx*dx + dy*dy + dz*dz)
+    
+    def is_pinch(self, landmarks):
+        """Check if thumb and index finger are pinched together"""
+        thumb_tip = landmarks[4]
+        index_tip = landmarks[8]
+        distance = self.calculate_distance(thumb_tip, index_tip)
+        return distance < self.click_threshold
         
     def is_pointing(self, landmarks):
         """Check if only index finger is extended (pointing gesture)"""
@@ -240,60 +266,61 @@ class HandGestureMouseControl:
         try:
             # RIGHT HAND GESTURES
             if is_right_hand:
-                # Right hand pointing - Move mouse cursor
+                # Right hand pointing - Move mouse cursor (relative movement)
                 if self.is_pointing(landmarks):
                     index_tip = landmarks[8]
+                    # Get finger position in normalized coordinates (0-1 range)
                     # Flip x coordinate to match mirrored display
-                    x = int((1.0 - index_tip.x) * self.screen_width)
-                    y = int(index_tip.y * self.screen_height)
+                    finger_x = 1.0 - index_tip.x
+                    finger_y = index_tip.y
                     
-                    # Clamp to screen bounds
-                    x = max(0, min(self.screen_width - 1, x))
-                    y = max(0, min(self.screen_height - 1, y))
+                    # Initialize previous position if first time
+                    if self.last_finger_x is None or self.last_finger_y is None:
+                        self.last_finger_x = finger_x
+                        self.last_finger_y = finger_y
+                        return  # Skip first frame
                     
-                    # Initialize positions if first time
-                    if self.last_x == 0 and self.last_y == 0:
-                        self.last_x, self.last_y = x, y
-                        self.raw_x, self.raw_y = x, y
+                    # Calculate movement delta in normalized coordinates
+                    dx = finger_x - self.last_finger_x
+                    dy = finger_y - self.last_finger_y
                     
-                    # Calculate raw movement (how much the hand actually moved)
-                    raw_dx = abs(x - self.raw_x)
-                    raw_dy = abs(y - self.raw_y)
+                    # Apply smoothing to movement delta
+                    self.smoothed_dx = self.smoothed_dx * self.smoothing_factor + dx * (1 - self.smoothing_factor)
+                    self.smoothed_dy = self.smoothed_dy * self.smoothing_factor + dy * (1 - self.smoothing_factor)
                     
-                    # Check if hand is stationary (very small movement)
-                    is_stationary = raw_dx < self.stationary_threshold and raw_dy < self.stationary_threshold
+                    # Check if movement is significant enough
+                    movement_magnitude = abs(self.smoothed_dx) + abs(self.smoothed_dy)
                     
-                    if is_stationary:
-                        # Hand is stationary - stop mouse movement immediately
-                        # Don't apply smoothing, just keep mouse at current position
-                        self.raw_x, self.raw_y = x, y
-                        # Don't update last_x, last_y to prevent sliding
+                    if movement_magnitude > self.movement_threshold:
+                        # Scale the movement delta to screen pixels
+                        # Apply sensitivity multiplier
+                        mouse_dx = int(self.smoothed_dx * self.screen_width * self.sensitivity)
+                        mouse_dy = int(self.smoothed_dy * self.screen_height * self.sensitivity)
+                        
+                        # Move mouse relative to current position
+                        if mouse_dx != 0 or mouse_dy != 0:
+                            pyautogui.moveRel(mouse_dx, mouse_dy, duration=0.01)
                     else:
-                        # Hand is moving - apply smoothing
-                        # Update raw position
-                        self.raw_x, self.raw_y = x, y
-                        
-                        # Apply exponential smoothing (higher factor = more smoothing)
-                        smooth_x = int(self.last_x * self.smoothing_factor + x * (1 - self.smoothing_factor))
-                        smooth_y = int(self.last_y * self.smoothing_factor + y * (1 - self.smoothing_factor))
-                        
-                        # Calculate movement distance from last mouse position
-                        dx = abs(smooth_x - self.last_x)
-                        dy = abs(smooth_y - self.last_y)
-                        
-                        # Only move if movement exceeds threshold (reduces jitter)
-                        if dx > self.movement_threshold or dy > self.movement_threshold:
-                            # Move mouse with slight duration for smoother motion
-                            pyautogui.moveTo(smooth_x, smooth_y, duration=0.02)
-                            self.last_x, self.last_y = smooth_x, smooth_y
-                        else:
-                            # Movement too small, but update last position for next frame
-                            self.last_x, self.last_y = smooth_x, smooth_y
+                        # Movement too small - reset smoothed deltas to prevent drift
+                        self.smoothed_dx = 0.0
+                        self.smoothed_dy = 0.0
+                    
+                    # Update previous finger position
+                    self.last_finger_x = finger_x
+                    self.last_finger_y = finger_y
             
             # LEFT HAND GESTURES
             elif is_left_hand:
+                current_time = time.time()
+                
+                # Left hand pinch - Left click
+                if self.is_pinch(landmarks):
+                    if current_time - self.last_click_time > self.click_cooldown:
+                        pyautogui.click()
+                        self.last_click_time = current_time
+                
                 # Left hand pointing - Gesture detected (no action for now)
-                if self.is_pointing(landmarks):
+                elif self.is_pointing(landmarks):
                     # Left hand pointing gesture is detected but has no action assigned
                     pass
         except Exception as e:
@@ -388,7 +415,9 @@ class HandGestureMouseControl:
                             else:
                                 gesture_text = f"{hand_label} Hand: Other Gesture"
                         elif is_left_hand:
-                            if self.is_pointing(hand_landmarks):
+                            if self.is_pinch(hand_landmarks):
+                                gesture_text = f"{hand_label} Hand: PINCH - Left Click"
+                            elif self.is_pointing(hand_landmarks):
                                 gesture_text = f"{hand_label} Hand: POINTING - Detected"
                             else:
                                 gesture_text = f"{hand_label} Hand: Other Gesture"
