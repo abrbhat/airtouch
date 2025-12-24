@@ -4,12 +4,12 @@ A desktop application that allows you to control your mouse using hand gestures 
 
 ## Features
 
-- **Mouse Movement**: Point with your index finger to move the mouse cursor
-- **Left Click**: Pinch your thumb and index finger together
-- **Right Click**: Extend all five fingers (open hand)
-- **Middle Click**: Make a fist
+- **Dual Hand Control**: Supports both left and right hand gestures simultaneously
+- **Right Hand Pointing**: Move the mouse cursor by pointing with your right hand index finger
+- **Left Hand Pointing**: Gesture detection (action can be assigned)
 - **Real-time Hand Tracking**: Uses MediaPipe for accurate hand detection
 - **Smooth Control**: Built-in smoothing for natural mouse movement
+- **Visual Feedback**: Color-coded hand detection (Blue for left, Green for right)
 
 ## Requirements
 
@@ -33,11 +33,13 @@ python main.py
 
 2. Click "Start Camera" to begin video feed
 3. Click "Enable Mouse Control" to activate gesture control
-4. Position your hand in front of the camera and use gestures:
+4. Position your hands in front of the camera and use gestures:
+   
+   **Right Hand Gesture:**
    - **Point with index finger**: Move mouse cursor
-   - **Pinch thumb and index**: Left click
-   - **Open hand (5 fingers)**: Right click
-   - **Fist**: Middle click
+   
+   **Left Hand Gesture:**
+   - **Point with index finger**: Detected (no action assigned)
 
 ## Controls
 
@@ -45,18 +47,28 @@ python main.py
 - **Enable Mouse Control / Disable Mouse Control**: Toggle gesture control
 - **Calibrate**: Set hand position range (optional, for future enhancement)
 
+## Gesture Details
+
+### Right Hand
+- **Pointing Gesture**: Extend only your index finger while keeping other fingers closed. Move your hand to control the mouse cursor position. The mouse movement is smoothed for natural control and stops immediately when you stop moving your finger.
+
+### Left Hand
+- **Pointing Gesture**: Extend only your index finger while keeping other fingers closed. This gesture is currently detected but has no assigned action. You can customize this gesture to perform any action you need.
+
 ## Tips
 
 - Ensure good lighting for better hand detection
-- Keep your hand within the camera frame
+- Keep both hands within the camera frame when using dual-hand gestures
 - The application uses smoothing to reduce jittery mouse movements
-- There's a cooldown between clicks to prevent accidental multiple clicks
+- The camera feed is mirrored for a more natural experience
+- Hand detection is color-coded: Blue for left hand, Green for right hand
+- The mouse cursor stops immediately when you stop moving your finger (no sliding effect)
 
 ## Troubleshooting
 
 - If the camera doesn't start, make sure no other application is using it
 - Adjust lighting if hand detection is inconsistent
-- You may need to adjust the `click_threshold` in the code if clicks aren't registering properly
+- If mouse movement feels too sensitive or not sensitive enough, you can adjust the `smoothing_factor` and `movement_threshold` parameters in the code
 
 ## License
 
