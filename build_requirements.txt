@@ -1,0 +1,3 @@
+# Additional requirements for building the executable
+pyinstaller>=6.0.0
+

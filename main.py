@@ -14,7 +14,13 @@ import urllib.request
 import sys
 
 # Get the script directory
-SCRIPT_DIR = os.path.dirname(os.path.abspath(sys.argv[0])) if sys.argv else os.getcwd()
+# Handle PyInstaller bundled mode
+if getattr(sys, 'frozen', False):
+    # Running as compiled executable
+    SCRIPT_DIR = sys._MEIPASS
+else:
+    # Running as script
+    SCRIPT_DIR = os.path.dirname(os.path.abspath(sys.argv[0])) if sys.argv else os.getcwd()
 
 class HandGestureMouseControl:
     def __init__(self, root):
@@ -79,23 +85,31 @@ class HandGestureMouseControl:
     
     def download_model_if_needed(self):
         """Download the hand landmarker model if it doesn't exist"""
-        # Use the script directory
-        model_dir = os.path.join(SCRIPT_DIR, "models")
-        os.makedirs(model_dir, exist_ok=True)
-        model_path = os.path.join(model_dir, "hand_landmarker.task")
-        
-        if not os.path.exists(model_path):
-            print("Downloading hand landmarker model (this may take a moment)...")
-            model_url = "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task"
-            try:
-                urllib.request.urlretrieve(model_url, model_path)
-                print("Model downloaded successfully!")
-            except Exception as e:
-                print(f"Error downloading model: {e}")
-                print("Please download the model manually from:")
-                print("https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task")
-                print(f"Save it to: {model_path}")
-                raise
+        # For PyInstaller, use the bundled models directory
+        # For regular execution, use script directory
+        if getattr(sys, 'frozen', False):
+            # Running as compiled executable - use bundled models
+            model_path = os.path.join(SCRIPT_DIR, "models", "hand_landmarker.task")
+            if not os.path.exists(model_path):
+                raise FileNotFoundError(f"Model file not found in bundled resources: {model_path}")
+        else:
+            # Running as script - use script directory
+            model_dir = os.path.join(SCRIPT_DIR, "models")
+            os.makedirs(model_dir, exist_ok=True)
+            model_path = os.path.join(model_dir, "hand_landmarker.task")
+            
+            if not os.path.exists(model_path):
+                print("Downloading hand landmarker model (this may take a moment)...")
+                model_url = "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task"
+                try:
+                    urllib.request.urlretrieve(model_url, model_path)
+                    print("Model downloaded successfully!")
+                except Exception as e:
+                    print(f"Error downloading model: {e}")
+                    print("Please download the model manually from:")
+                    print("https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task")
+                    print(f"Save it to: {model_path}")
+                    raise
         
         return model_path
         
@@ -152,11 +166,12 @@ class HandGestureMouseControl:
         - Enable Mouse Control: Activate gesture control
         
         Gestures:
-        - Right Hand Thumb Up: Scroll down
+        - Right Hand Open Palm: Scroll down
+        - Right Hand Victory: Open Task View
         - Right Hand Pointing: Move mouse cursor
-        - Left Hand Thumb Up: Scroll up
-        - Left Hand Pinch: Left click
-        - Left Hand Pointing: Detected (no action)
+        - Left Hand Pointing: Left click
+        - Left Hand Victory: Right click
+        - Left Hand Open Palm: Scroll up
         """
         self.instructions_label = ttk.Label(
             self.video_tab,
@@ -380,18 +395,123 @@ class HandGestureMouseControl:
         index_tip = landmarks[8]
         distance = self.calculate_distance(thumb_tip, index_tip)
         return distance < self.click_threshold
+    
+    def is_fist(self, landmarks):
+        """Check if all fingers are closed (fist gesture)"""
+        finger_tips = [4, 8, 12, 16, 20]  # Thumb, Index, Middle, Ring, Pinky
+        finger_pips = [3, 6, 10, 14, 18]  # Corresponding PIP joints
+        
+        for tip, pip in zip(finger_tips, finger_pips):
+            # For thumb, check if tip is below IP (closed)
+            if tip == 4:  # Thumb
+                if landmarks[tip].y < landmarks[pip].y:  # Thumb extended
+                    return False
+            else:
+                if landmarks[tip].y < landmarks[pip].y:  # Finger extended
+                    return False
+        
+        return True
+    
+    def is_open_palm(self, landmarks):
+        """Check if all fingers are extended (open palm)"""
+        finger_tips = [8, 12, 16, 20]  # Index, Middle, Ring, Pinky
+        finger_pips = [6, 10, 14, 18]
+        
+        for tip, pip in zip(finger_tips, finger_pips):
+            if landmarks[tip].y >= landmarks[pip].y:  # Finger not extended
+                return False
+        
+        return True
+    
+    def is_victory(self, landmarks):
+        """Check if index and middle fingers are extended (victory/peace sign)"""
+        # Index and middle should be extended
+        if landmarks[8].y >= landmarks[6].y or landmarks[12].y >= landmarks[10].y:
+            return False
+        
+        # Ring and pinky should be closed
+        if landmarks[16].y < landmarks[14].y or landmarks[20].y < landmarks[18].y:
+            return False
+        
+        return True
+    
+    def is_ok_sign(self, landmarks):
+        """Check if thumb and index form a circle (OK sign)"""
+        thumb_tip = landmarks[4]
+        index_tip = landmarks[8]
+        thumb_ip = landmarks[3]
+        index_pip = landmarks[6]
+        
+        # Check if thumb and index are close together (forming circle)
+        distance = self.calculate_distance(thumb_tip, index_tip)
+        if distance > 0.04:  # Too far apart
+            return False
+        
+        # Other fingers should be extended
+        if landmarks[12].y >= landmarks[10].y or landmarks[16].y >= landmarks[14].y or landmarks[20].y >= landmarks[18].y:
+            return False
+        
+        return True
+    
+    def is_rock(self, landmarks):
+        """Check if index and pinky are extended (rock/devil horns gesture)"""
+        # Index and pinky should be extended
+        if landmarks[8].y >= landmarks[6].y or landmarks[20].y >= landmarks[18].y:
+            return False
+        
+        # Middle and ring should be closed
+        if landmarks[12].y < landmarks[10].y or landmarks[16].y < landmarks[14].y:
+            return False
+        
+        return True
+    
+    def get_gesture_name(self, landmarks):
+        """Get the name of the detected gesture"""
+        if self.is_thumb_up(landmarks):
+            return "THUMB UP"
+        elif self.is_pointing(landmarks):
+            return "POINTING"
+        elif self.is_pinch(landmarks):
+            return "PINCH"
+        elif self.is_fist(landmarks):
+            return "FIST"
+        elif self.is_open_palm(landmarks):
+            return "OPEN PALM"
+        elif self.is_victory(landmarks):
+            return "VICTORY"
+        elif self.is_ok_sign(landmarks):
+            return "OK SIGN"
+        elif self.is_rock(landmarks):
+            return "ROCK"
+        else:
+            return "UNKNOWN"
         
     def is_thumb_up(self, landmarks):
         """Check if thumb is extended upward (thumb up gesture)"""
-        # Thumb tip should be above thumb IP joint (thumb extended upward)
         thumb_tip = landmarks[4]
         thumb_ip = landmarks[3]
+        thumb_mcp = landmarks[2]  # Thumb MCP joint
+        wrist = landmarks[0]
         
         # For thumb up, thumb tip should be significantly above thumb IP
-        if thumb_tip.y >= thumb_ip.y:  # Thumb tip is not above IP
+        # Check vertical distance (thumb extended upward)
+        thumb_vertical_extension = thumb_ip.y - thumb_tip.y
+        if thumb_vertical_extension < 0.02:  # Thumb tip not significantly above IP
+            return False
+        
+        # Thumb should also be extended outward (away from hand)
+        # Check horizontal distance from wrist (for right hand, thumb extends to the right)
+        # For left hand, thumb extends to the left
+        thumb_horizontal_extension = abs(thumb_tip.x - wrist.x)
+        if thumb_horizontal_extension < 0.05:  # Thumb not extended outward enough
+            return False
+        
+        # Thumb tip should be above the thumb MCP joint (more extended)
+        if thumb_tip.y >= thumb_mcp.y:
             return False
         
         # Other fingers should be closed (fist-like but with thumb up)
+        # Check if fingertips are below their PIP joints (fingers closed)
         finger_tips = [8, 12, 16, 20]  # Index, Middle, Ring, Pinky
         finger_pips = [6, 10, 14, 18]
         
@@ -448,11 +568,21 @@ class HandGestureMouseControl:
             if is_right_hand:
                 current_time = time.time()
                 
-                # Right hand thumb up - Scroll down
+                # Right hand thumb up - Nothing
                 if self.is_thumb_up(landmarks):
+                    pass  # No action
+                
+                # Right hand open palm - Scroll down
+                elif self.is_open_palm(landmarks):
                     if current_time - self.last_scroll_time > self.scroll_cooldown:
                         pyautogui.scroll(-self.scroll_speed)  # Scroll down
                         self.last_scroll_time = current_time
+                
+                # Right hand victory - Open Task View
+                elif self.is_victory(landmarks):
+                    if current_time - self.last_click_time > self.click_cooldown:
+                        pyautogui.hotkey('win', 'tab')  # Open Task View
+                        self.last_click_time = current_time
                 
                 # Right hand pointing - Move mouse cursor (relative movement)
                 elif self.is_pointing(landmarks):
@@ -501,22 +631,31 @@ class HandGestureMouseControl:
             elif is_left_hand:
                 current_time = time.time()
                 
-                # Left hand thumb up - Scroll up
+                # Left hand thumb up - Nothing
                 if self.is_thumb_up(landmarks):
+                    pass  # No action
+                
+                # Left hand pointing - Left click
+                elif self.is_pointing(landmarks):
+                    if current_time - self.last_click_time > self.click_cooldown:
+                        pyautogui.click()  # Left click
+                        self.last_click_time = current_time
+                
+                # Left hand victory - Right click
+                elif self.is_victory(landmarks):
+                    if current_time - self.last_click_time > self.click_cooldown:
+                        pyautogui.rightClick()  # Right click
+                        self.last_click_time = current_time
+                
+                # Left hand open palm - Scroll up
+                elif self.is_open_palm(landmarks):
                     if current_time - self.last_scroll_time > self.scroll_cooldown:
                         pyautogui.scroll(self.scroll_speed)  # Scroll up
                         self.last_scroll_time = current_time
                 
-                # Left hand pinch - Left click
+                # Left hand pinch - Nothing
                 elif self.is_pinch(landmarks):
-                    if current_time - self.last_click_time > self.click_cooldown:
-                        pyautogui.click()
-                        self.last_click_time = current_time
-                
-                # Left hand pointing - Gesture detected (no action for now)
-                elif self.is_pointing(landmarks):
-                    # Left hand pointing gesture is detected but has no action assigned
-                    pass
+                    pass  # No action
         except Exception as e:
             print(f"Error in process_hand_gestures: {e}")
     
@@ -603,22 +742,27 @@ class HandGestureMouseControl:
                         gesture_text = ""
                         text_y = 30 + (idx * 30)  # Offset for multiple hands
                         
+                        # Get gesture name
+                        gesture_name = self.get_gesture_name(hand_landmarks)
+                        
+                        # Determine action based on gesture and hand
+                        action_text = ""
                         if is_right_hand:
-                            if self.is_thumb_up(hand_landmarks):
-                                gesture_text = f"{hand_label} Hand: THUMB UP - Scroll Down"
+                            if self.is_open_palm(hand_landmarks):
+                                action_text = " - Scroll Down"
+                            elif self.is_victory(hand_landmarks):
+                                action_text = " - Open Task View"
                             elif self.is_pointing(hand_landmarks):
-                                gesture_text = f"{hand_label} Hand: POINTING - Mouse Move"
-                            else:
-                                gesture_text = f"{hand_label} Hand: Other Gesture"
+                                action_text = " - Mouse Move"
                         elif is_left_hand:
-                            if self.is_thumb_up(hand_landmarks):
-                                gesture_text = f"{hand_label} Hand: THUMB UP - Scroll Up"
-                            elif self.is_pinch(hand_landmarks):
-                                gesture_text = f"{hand_label} Hand: PINCH - Left Click"
-                            elif self.is_pointing(hand_landmarks):
-                                gesture_text = f"{hand_label} Hand: POINTING - Detected"
-                            else:
-                                gesture_text = f"{hand_label} Hand: Other Gesture"
+                            if self.is_pointing(hand_landmarks):
+                                action_text = " - Left Click"
+                            elif self.is_victory(hand_landmarks):
+                                action_text = " - Right Click"
+                            elif self.is_open_palm(hand_landmarks):
+                                action_text = " - Scroll Up"
+                        
+                        gesture_text = f"{hand_label} Hand: {gesture_name}{action_text}"
                         
                         if gesture_text:
                             cv2.putText(frame, gesture_text, (10, text_y), 

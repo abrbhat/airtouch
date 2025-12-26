@@ -5,14 +5,15 @@ A desktop application that allows you to control your mouse using hand gestures 
 ## Features
 
 - **Dual Hand Control**: Supports both left and right hand gestures simultaneously
-- **Right Hand Thumb Up**: Scroll down
+- **Right Hand Open Palm**: Scroll down
+- **Right Hand Victory**: Open Task View (Windows)
 - **Right Hand Pointing**: Move the mouse cursor by pointing with your right hand index finger (relative movement)
-- **Left Hand Thumb Up**: Scroll up
-- **Left Hand Pinch**: Perform left mouse click by pinching thumb and index finger together
-- **Left Hand Pointing**: Gesture detection (action can be assigned)
+- **Left Hand Pointing**: Left mouse click
+- **Left Hand Victory**: Right mouse click
+- **Left Hand Open Palm**: Scroll up
 - **Real-time Hand Tracking**: Uses MediaPipe for accurate hand detection
 - **Smooth Control**: Built-in smoothing for natural mouse movement
-- **Visual Feedback**: Color-coded hand detection (Blue for left, Green for right)
+- **Visual Feedback**: Color-coded hand detection (Blue for left, Green for right) with gesture names
 - **Settings Tab**: Adjustable parameters in real-time (scroll speed, sensitivity, smoothing, etc.)
 
 ## Requirements
@@ -23,10 +24,20 @@ A desktop application that allows you to control your mouse using hand gestures 
 
 ## Installation
 
+### Option 1: Run from Source
+
 1. Install the required dependencies:
 ```bash
 pip install -r requirements.txt
 ```
+
+### Option 2: Use Pre-built Executable
+
+If available, you can use a pre-built Windows executable (`HandGestureMouseControl.exe`) that doesn't require Python installation. Simply download and run the `.exe` file.
+
+### Building Your Own Executable
+
+To create your own executable, see [BUILD_INSTRUCTIONS.md](BUILD_INSTRUCTIONS.md) for detailed instructions.
 
 ## Usage
 
@@ -40,13 +51,14 @@ python main.py
 4. Position your hands in front of the camera and use gestures:
    
    **Right Hand Gestures:**
-   - **Thumb up**: Scroll down
+   - **Open palm** (all fingers extended): Scroll down
+   - **Victory sign** (index and middle fingers extended): Open Task View
    - **Point with index finger**: Move mouse cursor (relative movement)
    
    **Left Hand Gestures:**
-   - **Thumb up**: Scroll up
-   - **Pinch thumb and index finger**: Left click
-   - **Point with index finger**: Detected (no action assigned)
+   - **Point with index finger**: Left click
+   - **Victory sign** (index and middle fingers extended): Right click
+   - **Open palm** (all fingers extended): Scroll up
 
 5. **Adjust Settings**: Click on the "Settings" tab to adjust parameters in real-time:
    - Scroll Speed: Control how much scrolling occurs per gesture
@@ -65,13 +77,14 @@ python main.py
 ## Gesture Details
 
 ### Right Hand
-- **Thumb Up Gesture**: Extend your thumb upward while keeping other fingers closed (fist-like with thumb up). This gesture scrolls the page down. The scroll speed can be adjusted in the Settings tab.
+- **Open Palm Gesture**: Extend all fingers (thumb, index, middle, ring, and pinky). This gesture scrolls the page down. The scroll speed can be adjusted in the Settings tab.
+- **Victory Gesture**: Extend your index and middle fingers while keeping other fingers closed (peace sign). This gesture opens Windows Task View (Win+Tab). There's a cooldown period to prevent multiple triggers.
 - **Pointing Gesture**: Extend only your index finger while keeping other fingers closed. Move your hand to control the mouse cursor position. The mouse moves relative to your finger movement (not based on absolute position in the frame). The mouse movement is smoothed for natural control and stops immediately when you stop moving your finger.
 
 ### Left Hand
-- **Thumb Up Gesture**: Extend your thumb upward while keeping other fingers closed (fist-like with thumb up). This gesture scrolls the page up. The scroll speed can be adjusted in the Settings tab.
-- **Pinch Gesture**: Bring your thumb and index finger together to perform a left mouse click. There's a cooldown period between clicks to prevent accidental multiple clicks.
-- **Pointing Gesture**: Extend only your index finger while keeping other fingers closed. This gesture is currently detected but has no assigned action. You can customize this gesture to perform any action you need.
+- **Pointing Gesture**: Extend only your index finger while keeping other fingers closed. This gesture performs a left mouse click. There's a cooldown period between clicks to prevent accidental multiple clicks.
+- **Victory Gesture**: Extend your index and middle fingers while keeping other fingers closed (peace sign). This gesture performs a right mouse click. There's a cooldown period to prevent multiple clicks.
+- **Open Palm Gesture**: Extend all fingers (thumb, index, middle, ring, and pinky). This gesture scrolls the page up. The scroll speed can be adjusted in the Settings tab.
 
 ## Tips
 
