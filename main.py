@@ -69,8 +69,7 @@ class HandGestureMouseControl:
         # Scroll detection
         self.last_scroll_time = 0
         self.scroll_cooldown = 0.1  # seconds between scroll actions
-        self.scroll_speed = 3  # Scroll units per gesture
-        self.scroll_speed = 3  # Scroll units per gesture
+        self.scroll_speed = 12  # Scroll units per gesture
         
         # Create GUI
         self.create_gui()
