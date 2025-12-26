@@ -52,10 +52,6 @@ class HandGestureMouseControl:
         # Screen dimensions
         self.screen_width, self.screen_height = pyautogui.size()
         
-        # Calibration
-        self.calibration_frame = None
-        self.calibration_active = False
-        
         # Control parameters
         self.smoothing_factor = 0.85  # Higher value = more smoothing
         self.movement_threshold = 0.001  # Minimum normalized movement (0-1 range) to trigger mouse movement
@@ -73,6 +69,8 @@ class HandGestureMouseControl:
         # Scroll detection
         self.last_scroll_time = 0
         self.scroll_cooldown = 0.1  # seconds between scroll actions
+        self.scroll_speed = 3  # Scroll units per gesture
+        self.scroll_speed = 3  # Scroll units per gesture
         
         # Create GUI
         self.create_gui()
@@ -124,15 +122,6 @@ class HandGestureMouseControl:
         )
         self.control_btn.pack(side=tk.LEFT, padx=5)
         
-        # Calibration button
-        self.calib_btn = ttk.Button(
-            control_frame,
-            text="Calibrate",
-            command=self.start_calibration,
-            state=tk.DISABLED
-        )
-        self.calib_btn.pack(side=tk.LEFT, padx=5)
-        
         # Status label
         self.status_label = ttk.Label(
             control_frame,
@@ -141,8 +130,16 @@ class HandGestureMouseControl:
         )
         self.status_label.pack(side=tk.LEFT, padx=20)
         
+        # Create notebook for tabs
+        self.notebook = ttk.Notebook(self.root)
+        self.notebook.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+        
+        # Tab 1: Video Feed
+        self.video_tab = ttk.Frame(self.notebook)
+        self.notebook.add(self.video_tab, text="Video Feed")
+        
         # Video frame
-        self.video_frame = ttk.Frame(self.root)
+        self.video_frame = ttk.Frame(self.video_tab)
         self.video_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
         
         # Video label
@@ -154,22 +151,187 @@ class HandGestureMouseControl:
         Instructions:
         - Start Camera: Begin video feed
         - Enable Mouse Control: Activate gesture control
-        - Calibrate: Set hand position range (optional)
         
         Gestures:
-        - Right Hand Thumb Up: Scroll up
+        - Right Hand Thumb Up: Scroll down
         - Right Hand Pointing: Move mouse cursor
-        - Left Hand Thumb Up: Scroll down
+        - Left Hand Thumb Up: Scroll up
         - Left Hand Pinch: Left click
         - Left Hand Pointing: Detected (no action)
         """
         self.instructions_label = ttk.Label(
-            self.root,
+            self.video_tab,
             text=instructions,
             justify=tk.LEFT,
             font=("Arial", 9)
         )
         self.instructions_label.pack(pady=10)
+        
+        # Tab 2: Settings
+        self.settings_tab = ttk.Frame(self.notebook)
+        self.notebook.add(self.settings_tab, text="Settings")
+        self.create_settings_tab()
+    
+    def create_settings_tab(self):
+        """Create settings tab with adjustable parameters"""
+        settings_frame = ttk.Frame(self.settings_tab, padding="20")
+        settings_frame.pack(fill=tk.BOTH, expand=True)
+        
+        # Scroll Speed
+        scroll_frame = ttk.LabelFrame(settings_frame, text="Scroll Speed", padding="10")
+        scroll_frame.pack(fill=tk.X, pady=10)
+        
+        self.scroll_speed_var = tk.DoubleVar(value=self.scroll_speed)
+        scroll_speed_label = ttk.Label(scroll_frame, text="Scroll Units:")
+        scroll_speed_label.pack(side=tk.LEFT, padx=5)
+        
+        self.scroll_speed_scale = ttk.Scale(
+            scroll_frame,
+            from_=1,
+            to=20,
+            orient=tk.HORIZONTAL,
+            variable=self.scroll_speed_var,
+            command=self.update_scroll_speed
+        )
+        self.scroll_speed_scale.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5)
+        
+        self.scroll_speed_value_label = ttk.Label(scroll_frame, text=str(self.scroll_speed))
+        self.scroll_speed_value_label.pack(side=tk.LEFT, padx=5)
+        
+        # Mouse Sensitivity
+        sensitivity_frame = ttk.LabelFrame(settings_frame, text="Mouse Sensitivity", padding="10")
+        sensitivity_frame.pack(fill=tk.X, pady=10)
+        
+        self.sensitivity_var = tk.DoubleVar(value=self.sensitivity)
+        sensitivity_label = ttk.Label(sensitivity_frame, text="Sensitivity:")
+        sensitivity_label.pack(side=tk.LEFT, padx=5)
+        
+        self.sensitivity_scale = ttk.Scale(
+            sensitivity_frame,
+            from_=0.5,
+            to=15.0,
+            orient=tk.HORIZONTAL,
+            variable=self.sensitivity_var,
+            command=self.update_sensitivity
+        )
+        self.sensitivity_scale.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5)
+        
+        self.sensitivity_value_label = ttk.Label(sensitivity_frame, text=f"{self.sensitivity:.1f}")
+        self.sensitivity_value_label.pack(side=tk.LEFT, padx=5)
+        
+        # Smoothing Factor
+        smoothing_frame = ttk.LabelFrame(settings_frame, text="Mouse Smoothing", padding="10")
+        smoothing_frame.pack(fill=tk.X, pady=10)
+        
+        self.smoothing_var = tk.DoubleVar(value=self.smoothing_factor)
+        smoothing_label = ttk.Label(smoothing_frame, text="Smoothing:")
+        smoothing_label.pack(side=tk.LEFT, padx=5)
+        
+        self.smoothing_scale = ttk.Scale(
+            smoothing_frame,
+            from_=0.5,
+            to=0.95,
+            orient=tk.HORIZONTAL,
+            variable=self.smoothing_var,
+            command=self.update_smoothing
+        )
+        self.smoothing_scale.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5)
+        
+        self.smoothing_value_label = ttk.Label(smoothing_frame, text=f"{self.smoothing_factor:.2f}")
+        self.smoothing_value_label.pack(side=tk.LEFT, padx=5)
+        
+        # Movement Threshold
+        threshold_frame = ttk.LabelFrame(settings_frame, text="Movement Threshold", padding="10")
+        threshold_frame.pack(fill=tk.X, pady=10)
+        
+        self.threshold_var = tk.DoubleVar(value=self.movement_threshold)
+        threshold_label = ttk.Label(threshold_frame, text="Threshold:")
+        threshold_label.pack(side=tk.LEFT, padx=5)
+        
+        self.threshold_scale = ttk.Scale(
+            threshold_frame,
+            from_=0.0001,
+            to=0.01,
+            orient=tk.HORIZONTAL,
+            variable=self.threshold_var,
+            command=self.update_threshold
+        )
+        self.threshold_scale.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5)
+        
+        self.threshold_value_label = ttk.Label(threshold_frame, text=f"{self.movement_threshold:.4f}")
+        self.threshold_value_label.pack(side=tk.LEFT, padx=5)
+        
+        # Click Cooldown
+        cooldown_frame = ttk.LabelFrame(settings_frame, text="Click Cooldown", padding="10")
+        cooldown_frame.pack(fill=tk.X, pady=10)
+        
+        self.cooldown_var = tk.DoubleVar(value=self.click_cooldown)
+        cooldown_label = ttk.Label(cooldown_frame, text="Cooldown (seconds):")
+        cooldown_label.pack(side=tk.LEFT, padx=5)
+        
+        self.cooldown_scale = ttk.Scale(
+            cooldown_frame,
+            from_=0.1,
+            to=2.0,
+            orient=tk.HORIZONTAL,
+            variable=self.cooldown_var,
+            command=self.update_cooldown
+        )
+        self.cooldown_scale.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5)
+        
+        self.cooldown_value_label = ttk.Label(cooldown_frame, text=f"{self.click_cooldown:.2f}s")
+        self.cooldown_value_label.pack(side=tk.LEFT, padx=5)
+        
+        # Scroll Cooldown
+        scroll_cooldown_frame = ttk.LabelFrame(settings_frame, text="Scroll Cooldown", padding="10")
+        scroll_cooldown_frame.pack(fill=tk.X, pady=10)
+        
+        self.scroll_cooldown_var = tk.DoubleVar(value=self.scroll_cooldown)
+        scroll_cooldown_label = ttk.Label(scroll_cooldown_frame, text="Cooldown (seconds):")
+        scroll_cooldown_label.pack(side=tk.LEFT, padx=5)
+        
+        self.scroll_cooldown_scale = ttk.Scale(
+            scroll_cooldown_frame,
+            from_=0.05,
+            to=0.5,
+            orient=tk.HORIZONTAL,
+            variable=self.scroll_cooldown_var,
+            command=self.update_scroll_cooldown
+        )
+        self.scroll_cooldown_scale.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5)
+        
+        self.scroll_cooldown_value_label = ttk.Label(scroll_cooldown_frame, text=f"{self.scroll_cooldown:.2f}s")
+        self.scroll_cooldown_value_label.pack(side=tk.LEFT, padx=5)
+    
+    def update_scroll_speed(self, value=None):
+        """Update scroll speed parameter"""
+        self.scroll_speed = int(float(self.scroll_speed_var.get()))
+        self.scroll_speed_value_label.config(text=str(self.scroll_speed))
+    
+    def update_sensitivity(self, value=None):
+        """Update mouse sensitivity parameter"""
+        self.sensitivity = float(self.sensitivity_var.get())
+        self.sensitivity_value_label.config(text=f"{self.sensitivity:.1f}")
+    
+    def update_smoothing(self, value=None):
+        """Update smoothing factor parameter"""
+        self.smoothing_factor = float(self.smoothing_var.get())
+        self.smoothing_value_label.config(text=f"{self.smoothing_factor:.2f}")
+    
+    def update_threshold(self, value=None):
+        """Update movement threshold parameter"""
+        self.movement_threshold = float(self.threshold_var.get())
+        self.threshold_value_label.config(text=f"{self.movement_threshold:.4f}")
+    
+    def update_cooldown(self, value=None):
+        """Update click cooldown parameter"""
+        self.click_cooldown = float(self.cooldown_var.get())
+        self.cooldown_value_label.config(text=f"{self.click_cooldown:.2f}s")
+    
+    def update_scroll_cooldown(self, value=None):
+        """Update scroll cooldown parameter"""
+        self.scroll_cooldown = float(self.scroll_cooldown_var.get())
+        self.scroll_cooldown_value_label.config(text=f"{self.scroll_cooldown:.2f}s")
         
     def toggle_camera(self):
         if not self.is_running:
@@ -180,7 +342,6 @@ class HandGestureMouseControl:
             self.is_running = True
             self.camera_btn.config(text="Stop Camera")
             self.control_btn.config(state=tk.NORMAL)
-            self.calib_btn.config(state=tk.NORMAL)
             self.status_label.config(text="Status: Camera On", foreground="green")
             self.update_frame()
         else:
@@ -190,7 +351,6 @@ class HandGestureMouseControl:
                 self.cap.release()
             self.camera_btn.config(text="Start Camera")
             self.control_btn.config(text="Enable Mouse Control", state=tk.DISABLED)
-            self.calib_btn.config(state=tk.DISABLED)
             self.status_label.config(text="Status: Camera Off", foreground="red")
             self.video_label.config(image='')
             
@@ -207,11 +367,6 @@ class HandGestureMouseControl:
         else:
             self.control_btn.config(text="Enable Mouse Control")
             self.status_label.config(text="Status: Camera On", foreground="green")
-            
-    def start_calibration(self):
-        self.calibration_active = True
-        self.calibration_frame = None
-        self.status_label.config(text="Status: Calibrating - Move hand around", foreground="orange")
     
     def calculate_distance(self, point1, point2):
         """Calculate 3D distance between two points"""
@@ -294,10 +449,10 @@ class HandGestureMouseControl:
             if is_right_hand:
                 current_time = time.time()
                 
-                # Right hand thumb up - Scroll up
+                # Right hand thumb up - Scroll down
                 if self.is_thumb_up(landmarks):
                     if current_time - self.last_scroll_time > self.scroll_cooldown:
-                        pyautogui.scroll(3)  # Scroll up
+                        pyautogui.scroll(-self.scroll_speed)  # Scroll down
                         self.last_scroll_time = current_time
                 
                 # Right hand pointing - Move mouse cursor (relative movement)
@@ -347,10 +502,10 @@ class HandGestureMouseControl:
             elif is_left_hand:
                 current_time = time.time()
                 
-                # Left hand thumb up - Scroll down
+                # Left hand thumb up - Scroll up
                 if self.is_thumb_up(landmarks):
                     if current_time - self.last_scroll_time > self.scroll_cooldown:
-                        pyautogui.scroll(-3)  # Scroll down
+                        pyautogui.scroll(self.scroll_speed)  # Scroll up
                         self.last_scroll_time = current_time
                 
                 # Left hand pinch - Left click
@@ -451,14 +606,14 @@ class HandGestureMouseControl:
                         
                         if is_right_hand:
                             if self.is_thumb_up(hand_landmarks):
-                                gesture_text = f"{hand_label} Hand: THUMB UP - Scroll Up"
+                                gesture_text = f"{hand_label} Hand: THUMB UP - Scroll Down"
                             elif self.is_pointing(hand_landmarks):
                                 gesture_text = f"{hand_label} Hand: POINTING - Mouse Move"
                             else:
                                 gesture_text = f"{hand_label} Hand: Other Gesture"
                         elif is_left_hand:
                             if self.is_thumb_up(hand_landmarks):
-                                gesture_text = f"{hand_label} Hand: THUMB UP - Scroll Down"
+                                gesture_text = f"{hand_label} Hand: THUMB UP - Scroll Up"
                             elif self.is_pinch(hand_landmarks):
                                 gesture_text = f"{hand_label} Hand: PINCH - Left Click"
                             elif self.is_pointing(hand_landmarks):
