@@ -70,7 +70,7 @@ class HandGestureMouseControl:
         # Click detection
         self.click_threshold = 0.03  # Distance threshold for pinch gesture (thumb to index finger)
         self.last_click_time = 0
-        self.click_cooldown = 0.5  # seconds between clicks
+        self.click_cooldown = 2.0  # seconds between clicks
         
         # Scroll detection
         self.last_scroll_time = 0
@@ -167,10 +167,10 @@ class HandGestureMouseControl:
         
         Gestures:
         - Right Hand Open Palm: Scroll down
-        - Right Hand Victory: Open Task View
+        - Right Hand Victory: No action
         - Right Hand Pointing: Move mouse cursor
         - Left Hand Pointing: Left click
-        - Left Hand Victory: Right click
+        - Left Hand Victory: Open Task View
         - Left Hand Open Palm: Scroll up
         """
         self.instructions_label = ttk.Label(
@@ -397,19 +397,53 @@ class HandGestureMouseControl:
         return distance < self.click_threshold
     
     def is_fist(self, landmarks):
-        """Check if all fingers are closed (fist gesture)"""
-        finger_tips = [4, 8, 12, 16, 20]  # Thumb, Index, Middle, Ring, Pinky
-        finger_pips = [3, 6, 10, 14, 18]  # Corresponding PIP joints
-        
-        for tip, pip in zip(finger_tips, finger_pips):
-            # For thumb, check if tip is below IP (closed)
-            if tip == 4:  # Thumb
-                if landmarks[tip].y < landmarks[pip].y:  # Thumb extended
-                    return False
-            else:
-                if landmarks[tip].y < landmarks[pip].y:  # Finger extended
-                    return False
-        
+        """Check if all fingers are closed (fist gesture)
+        Uses two methods to handle different hand orientations:
+        1. Y-coordinate: tip at or below PIP (works for side view)
+        2. Distance: tip close to MCP (works for forward-facing fist)
+        """
+        # Check fingers (Index, Middle, Ring, Pinky)
+        finger_tips = [8, 12, 16, 20]
+        finger_pips = [6, 10, 14, 18]
+        finger_mcps = [5, 9, 13, 17]
+
+        for tip_idx, pip_idx, mcp_idx in zip(finger_tips, finger_pips, finger_mcps):
+            tip = landmarks[tip_idx]
+            pip = landmarks[pip_idx]
+            mcp = landmarks[mcp_idx]
+
+            # Method 1: Y-coordinate check (tip at or below PIP)
+            y_closed = tip.y >= pip.y
+
+            # Method 2: Distance check (tip close to MCP = curled finger)
+            dx = tip.x - mcp.x
+            dy = tip.y - mcp.y
+            dz = (tip.z - mcp.z) if hasattr(tip, 'z') else 0
+            distance = (dx*dx + dy*dy + dz*dz) ** 0.5
+            distance_closed = distance < 0.13
+
+            # Finger is closed if EITHER method indicates closed
+            if not (y_closed or distance_closed):
+                return False
+
+        # Check thumb separately
+        thumb_tip = landmarks[4]
+        thumb_ip = landmarks[3]
+        thumb_mcp = landmarks[2]
+
+        # Method 1: Y-check for thumb
+        thumb_y_closed = thumb_tip.y >= thumb_ip.y
+
+        # Method 2: Distance check for thumb
+        dx = thumb_tip.x - thumb_mcp.x
+        dy = thumb_tip.y - thumb_mcp.y
+        dz = (thumb_tip.z - thumb_mcp.z) if hasattr(thumb_tip, 'z') else 0
+        thumb_distance = (dx*dx + dy*dy + dz*dz) ** 0.5
+        thumb_distance_closed = thumb_distance < 0.15
+
+        if not (thumb_y_closed or thumb_distance_closed):
+            return False
+
         return True
     
     def is_open_palm(self, landmarks):
@@ -467,14 +501,14 @@ class HandGestureMouseControl:
     
     def get_gesture_name(self, landmarks):
         """Get the name of the detected gesture"""
-        if self.is_thumb_up(landmarks):
+        if self.is_fist(landmarks):
+            return "FIST"
+        elif self.is_thumb_up(landmarks):
             return "THUMB UP"
         elif self.is_pointing(landmarks):
             return "POINTING"
         elif self.is_pinch(landmarks):
             return "PINCH"
-        elif self.is_fist(landmarks):
-            return "FIST"
         elif self.is_open_palm(landmarks):
             return "OPEN PALM"
         elif self.is_victory(landmarks):
@@ -496,14 +530,14 @@ class HandGestureMouseControl:
         # For thumb up, thumb tip should be significantly above thumb IP
         # Check vertical distance (thumb extended upward)
         thumb_vertical_extension = thumb_ip.y - thumb_tip.y
-        if thumb_vertical_extension < 0.02:  # Thumb tip not significantly above IP
+        if thumb_vertical_extension < 0.06:  # Thumb tip not significantly above IP
             return False
-        
+
         # Thumb should also be extended outward (away from hand)
         # Check horizontal distance from wrist (for right hand, thumb extends to the right)
         # For left hand, thumb extends to the left
         thumb_horizontal_extension = abs(thumb_tip.x - wrist.x)
-        if thumb_horizontal_extension < 0.05:  # Thumb not extended outward enough
+        if thumb_horizontal_extension < 0.10:  # Thumb not extended outward enough
             return False
         
         # Thumb tip should be above the thumb MCP joint (more extended)
@@ -578,11 +612,9 @@ class HandGestureMouseControl:
                         pyautogui.scroll(-self.scroll_speed)  # Scroll down
                         self.last_scroll_time = current_time
                 
-                # Right hand victory - Open Task View
+                # Right hand victory - Nothing
                 elif self.is_victory(landmarks):
-                    if current_time - self.last_click_time > self.click_cooldown:
-                        pyautogui.hotkey('win', 'tab')  # Open Task View
-                        self.last_click_time = current_time
+                    pass  # No action
                 
                 # Right hand pointing - Move mouse cursor (relative movement)
                 elif self.is_pointing(landmarks):
@@ -641,10 +673,10 @@ class HandGestureMouseControl:
                         pyautogui.click()  # Left click
                         self.last_click_time = current_time
                 
-                # Left hand victory - Right click
+                # Left hand victory - Open Task View
                 elif self.is_victory(landmarks):
                     if current_time - self.last_click_time > self.click_cooldown:
-                        pyautogui.rightClick()  # Right click
+                        pyautogui.hotkey('win', 'tab')  # Open Task View
                         self.last_click_time = current_time
                 
                 # Left hand open palm - Scroll up
@@ -751,14 +783,14 @@ class HandGestureMouseControl:
                             if self.is_open_palm(hand_landmarks):
                                 action_text = " - Scroll Down"
                             elif self.is_victory(hand_landmarks):
-                                action_text = " - Open Task View"
+                                action_text = ""  # No action
                             elif self.is_pointing(hand_landmarks):
                                 action_text = " - Mouse Move"
                         elif is_left_hand:
                             if self.is_pointing(hand_landmarks):
                                 action_text = " - Left Click"
                             elif self.is_victory(hand_landmarks):
-                                action_text = " - Right Click"
+                                action_text = " - Open Task View"
                             elif self.is_open_palm(hand_landmarks):
                                 action_text = " - Scroll Up"
                         

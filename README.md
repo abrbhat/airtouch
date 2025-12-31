@@ -6,10 +6,10 @@ A desktop application that allows you to control your mouse using hand gestures 
 
 - **Dual Hand Control**: Supports both left and right hand gestures simultaneously
 - **Right Hand Open Palm**: Scroll down
-- **Right Hand Victory**: Open Task View (Windows)
+- **Right Hand Victory**: No action
 - **Right Hand Pointing**: Move the mouse cursor by pointing with your right hand index finger (relative movement)
 - **Left Hand Pointing**: Left mouse click
-- **Left Hand Victory**: Right mouse click
+- **Left Hand Victory**: Open Task View (Windows)
 - **Left Hand Open Palm**: Scroll up
 - **Real-time Hand Tracking**: Uses MediaPipe for accurate hand detection
 - **Smooth Control**: Built-in smoothing for natural mouse movement
@@ -52,12 +52,12 @@ python main.py
    
    **Right Hand Gestures:**
    - **Open palm** (all fingers extended): Scroll down
-   - **Victory sign** (index and middle fingers extended): Open Task View
+   - **Victory sign** (index and middle fingers extended): No action
    - **Point with index finger**: Move mouse cursor (relative movement)
    
    **Left Hand Gestures:**
    - **Point with index finger**: Left click
-   - **Victory sign** (index and middle fingers extended): Right click
+   - **Victory sign** (index and middle fingers extended): Open Task View
    - **Open palm** (all fingers extended): Scroll up
 
 5. **Adjust Settings**: Click on the "Settings" tab to adjust parameters in real-time:
@@ -78,12 +78,12 @@ python main.py
 
 ### Right Hand
 - **Open Palm Gesture**: Extend all fingers (thumb, index, middle, ring, and pinky). This gesture scrolls the page down. The scroll speed can be adjusted in the Settings tab.
-- **Victory Gesture**: Extend your index and middle fingers while keeping other fingers closed (peace sign). This gesture opens Windows Task View (Win+Tab). There's a cooldown period to prevent multiple triggers.
+- **Victory Gesture**: Extend your index and middle fingers while keeping other fingers closed (peace sign). This gesture has no assigned action.
 - **Pointing Gesture**: Extend only your index finger while keeping other fingers closed. Move your hand to control the mouse cursor position. The mouse moves relative to your finger movement (not based on absolute position in the frame). The mouse movement is smoothed for natural control and stops immediately when you stop moving your finger.
 
 ### Left Hand
 - **Pointing Gesture**: Extend only your index finger while keeping other fingers closed. This gesture performs a left mouse click. There's a cooldown period between clicks to prevent accidental multiple clicks.
-- **Victory Gesture**: Extend your index and middle fingers while keeping other fingers closed (peace sign). This gesture performs a right mouse click. There's a cooldown period to prevent multiple clicks.
+- **Victory Gesture**: Extend your index and middle fingers while keeping other fingers closed (peace sign). This gesture opens Windows Task View (Win+Tab). There's a cooldown period to prevent multiple triggers.
 - **Open Palm Gesture**: Extend all fingers (thumb, index, middle, ring, and pinky). This gesture scrolls the page up. The scroll speed can be adjusted in the Settings tab.
 
 ## Tips
