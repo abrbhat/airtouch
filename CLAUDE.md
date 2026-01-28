@@ -46,6 +46,7 @@ The entire application is in `main.py` as a single `HandGestureMouseControl` cla
 
 | Hand  | Gesture    | Action        |
 |-------|------------|---------------|
+| Both  | Fist       | Toggle control|
 | Right | Pointing   | Move cursor   |
 | Right | Open Palm  | Scroll down   |
 | Left  | Pointing   | Left click    |

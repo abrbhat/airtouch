@@ -76,7 +76,11 @@ class HandGestureMouseControl:
         self.last_scroll_time = 0
         self.scroll_cooldown = 0.1  # seconds between scroll actions
         self.scroll_speed = 12  # Scroll units per gesture
-        
+
+        # Toggle control detection (both fists)
+        self.last_toggle_time = 0
+        self.toggle_cooldown = 1.5  # seconds between toggle actions
+
         # Create GUI
         self.create_gui()
         
@@ -164,10 +168,11 @@ class HandGestureMouseControl:
         Instructions:
         - Start Camera: Begin video feed
         - Enable Mouse Control: Activate gesture control
-        
+
         Gestures:
+        - Both Hands Fist: Toggle mouse control on/off
         - Right Hand Open Palm: Scroll down
-        - Right Hand Victory: No action
+        - Right Hand Victory (2 fingers): Double click
         - Right Hand Pointing: Move mouse cursor
         - Left Hand Pointing: Left click
         - Left Hand Victory: Open Task View
@@ -576,7 +581,7 @@ class HandGestureMouseControl:
         """Process hand landmarks and control mouse based on hand type"""
         if not self.is_control_active:
             return
-        
+
         # Determine if this is left or right hand
         # MediaPipe returns handedness as a list with category_name
         is_left_hand = False
@@ -612,9 +617,11 @@ class HandGestureMouseControl:
                         pyautogui.scroll(-self.scroll_speed)  # Scroll down
                         self.last_scroll_time = current_time
                 
-                # Right hand victory - Nothing
+                # Right hand victory (two fingers) - Double click
                 elif self.is_victory(landmarks):
-                    pass  # No action
+                    if current_time - self.last_click_time > self.click_cooldown:
+                        pyautogui.doubleClick()
+                        self.last_click_time = current_time
                 
                 # Right hand pointing - Move mouse cursor (relative movement)
                 elif self.is_pointing(landmarks):
@@ -712,6 +719,23 @@ class HandGestureMouseControl:
             # Flip frame horizontally for mirror effect (only for display)
             frame = cv2.flip(frame, 1)
             
+            # Check for dual-fist toggle gesture (both hands showing fists)
+            both_fists_detected = False
+            if detection_result.hand_landmarks and len(detection_result.hand_landmarks) == 2:
+                current_time = time.time()
+                both_fists = all(self.is_fist(hand_landmarks) for hand_landmarks in detection_result.hand_landmarks)
+                if both_fists:
+                    both_fists_detected = True
+                    if current_time - self.last_toggle_time > self.toggle_cooldown:
+                        self.toggle_control()
+                        self.last_toggle_time = current_time
+
+            # Display toggle indicator if both fists detected
+            if both_fists_detected:
+                toggle_text = "TOGGLE: " + ("Control ON" if self.is_control_active else "Control OFF")
+                cv2.putText(frame, toggle_text, (frame.shape[1] // 2 - 100, 30),
+                          cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 255), 2)
+
             # Draw hand landmarks and process gestures
             if detection_result.hand_landmarks:
                 for idx, hand_landmarks in enumerate(detection_result.hand_landmarks):
@@ -783,7 +807,7 @@ class HandGestureMouseControl:
                             if self.is_open_palm(hand_landmarks):
                                 action_text = " - Scroll Down"
                             elif self.is_victory(hand_landmarks):
-                                action_text = ""  # No action
+                                action_text = " - Double Click"
                             elif self.is_pointing(hand_landmarks):
                                 action_text = " - Mouse Move"
                         elif is_left_hand:
