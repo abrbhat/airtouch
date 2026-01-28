@@ -12,6 +12,7 @@ import time
 import os
 import urllib.request
 import sys
+import ctypes
 
 # Get the script directory
 # Handle PyInstaller bundled mode
@@ -21,6 +22,103 @@ if getattr(sys, 'frozen', False):
 else:
     # Running as script
     SCRIPT_DIR = os.path.dirname(os.path.abspath(sys.argv[0])) if sys.argv else os.getcwd()
+
+
+
+class CornerIndicator:
+    """Visual indicator fixed in screen corner showing gesture control status."""
+
+    COLOR_ON = '#22c55e'   # Green
+    COLOR_OFF = '#6b7280'  # Gray
+
+    def __init__(self, parent_root, corner='bottom_right'):
+        self.parent = parent_root
+        self.corner = corner
+        self.visible = False
+        self.window = None
+        self.is_on = False
+        self.width = 70
+        self.height = 32
+
+    def create_window(self):
+        """Create the indicator overlay window."""
+        self.window = tk.Toplevel(self.parent)
+        self.window.overrideredirect(True)
+        self.window.attributes('-topmost', True)
+        self.window.attributes('-alpha', 0.95)
+
+        # Create frame with padding for visual appeal
+        self.frame = tk.Frame(self.window, bg=self.COLOR_OFF, padx=12, pady=4)
+        self.frame.pack(expand=True, fill='both')
+
+        # Add a label to show status
+        self.label = tk.Label(
+            self.frame,
+            text="OFF",
+            bg=self.COLOR_OFF,
+            fg='white',
+            font=('Segoe UI', 11, 'bold')
+        )
+        self.label.pack(expand=True)
+
+        self.window.geometry(f'{self.width}x{self.height}')
+        self._position_in_corner()
+
+        # Start hidden
+        self.window.withdraw()
+
+    def _position_in_corner(self):
+        """Position the window in the specified screen corner."""
+        screen_width = self.parent.winfo_screenwidth()
+        screen_height = self.parent.winfo_screenheight()
+
+        margin = 15
+        taskbar_height = 130  # Extra space above taskbar
+
+        if self.corner == 'top_left':
+            x, y = margin, margin
+        elif self.corner == 'top_right':
+            x, y = screen_width - self.width - margin, margin
+        elif self.corner == 'bottom_left':
+            x, y = margin, screen_height - self.height - taskbar_height
+        else:  # bottom_right
+            x, y = screen_width - self.width - margin, screen_height - self.height - taskbar_height
+
+        self.window.geometry(f'{self.width}x{self.height}+{x}+{y}')
+
+    def set_state(self, is_on):
+        """Set the indicator state (ON or OFF)."""
+        if not self.window:
+            self.create_window()
+
+        self.is_on = is_on
+        color = self.COLOR_ON if is_on else self.COLOR_OFF
+        text = "ON" if is_on else "OFF"
+
+        self.frame.configure(bg=color)
+        self.label.configure(bg=color, text=text)
+
+    def show(self):
+        """Show the indicator."""
+        if not self.window:
+            self.create_window()
+        self.visible = True
+        self.window.deiconify()
+        self.window.lift()
+
+    def hide(self):
+        """Hide the indicator."""
+        self.visible = False
+        if self.window:
+            self.window.withdraw()
+
+    def destroy(self):
+        """Clean up the indicator window."""
+        self.visible = False
+        if self.window:
+            self.window.destroy()
+            self.window = None
+
 
 class HandGestureMouseControl:
     def __init__(self, root):
@@ -80,6 +178,9 @@ class HandGestureMouseControl:
         # Toggle control detection (both fists)
         self.last_toggle_time = 0
         self.toggle_cooldown = 1.5  # seconds between toggle actions
+
+        # Corner indicator for control status
+        self.cursor_indicator = CornerIndicator(self.root)
 
         # Create GUI
         self.create_gui()
@@ -362,6 +463,9 @@ class HandGestureMouseControl:
             self.camera_btn.config(text="Stop Camera")
             self.control_btn.config(state=tk.NORMAL)
             self.status_label.config(text="Status: Camera On", foreground="green")
+            # Show indicator in OFF state when camera starts
+            self.cursor_indicator.set_state(False)
+            self.cursor_indicator.show()
             self.update_frame()
         else:
             self.is_running = False
@@ -372,6 +476,8 @@ class HandGestureMouseControl:
             self.control_btn.config(text="Enable Mouse Control", state=tk.DISABLED)
             self.status_label.config(text="Status: Camera Off", foreground="red")
             self.video_label.config(image='')
+            # Hide indicator when camera stops
+            self.cursor_indicator.hide()
             
     def toggle_control(self):
         self.is_control_active = not self.is_control_active
@@ -383,9 +489,13 @@ class HandGestureMouseControl:
             self.last_finger_y = None
             self.smoothed_dx = 0.0
             self.smoothed_dy = 0.0
+            # Update indicator to ON state
+            self.cursor_indicator.set_state(True)
         else:
             self.control_btn.config(text="Enable Mouse Control")
             self.status_label.config(text="Status: Camera On", foreground="green")
+            # Update indicator to OFF state
+            self.cursor_indicator.set_state(False)
     
     def calculate_distance(self, point1, point2):
         """Calculate 3D distance between two points"""
@@ -841,6 +951,8 @@ class HandGestureMouseControl:
         self.root.after(10, self.update_frame)
     
     def __del__(self):
+        if hasattr(self, 'cursor_indicator'):
+            self.cursor_indicator.destroy()
         if hasattr(self, 'cap') and self.cap:
             self.cap.release()
         cv2.destroyAllWindows()
