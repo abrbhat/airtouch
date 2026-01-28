@@ -271,7 +271,8 @@ class HandGestureMouseControl:
         - Enable Mouse Control: Activate gesture control
 
         Gestures:
-        - Both Hands Fist: Toggle mouse control on/off
+        - Both Hands Fist (apart): Toggle mouse control on/off
+        - Right Hand Thumb Up: Left click
         - Right Hand Open Palm: Scroll down
         - Right Hand Victory (2 fingers): Double click
         - Right Hand Pointing: Move mouse cursor
@@ -616,10 +617,10 @@ class HandGestureMouseControl:
     
     def get_gesture_name(self, landmarks):
         """Get the name of the detected gesture"""
-        if self.is_fist(landmarks):
-            return "FIST"
-        elif self.is_thumb_up(landmarks):
+        if self.is_thumb_up(landmarks):
             return "THUMB UP"
+        elif self.is_fist(landmarks):
+            return "FIST"
         elif self.is_pointing(landmarks):
             return "POINTING"
         elif self.is_pinch(landmarks):
@@ -641,33 +642,26 @@ class HandGestureMouseControl:
         thumb_ip = landmarks[3]
         thumb_mcp = landmarks[2]  # Thumb MCP joint
         wrist = landmarks[0]
-        
-        # For thumb up, thumb tip should be significantly above thumb IP
+
+        # For thumb up, thumb tip should be above thumb IP
         # Check vertical distance (thumb extended upward)
         thumb_vertical_extension = thumb_ip.y - thumb_tip.y
-        if thumb_vertical_extension < 0.06:  # Thumb tip not significantly above IP
+        if thumb_vertical_extension < 0.03:  # Thumb tip not above IP (relaxed threshold)
             return False
 
-        # Thumb should also be extended outward (away from hand)
-        # Check horizontal distance from wrist (for right hand, thumb extends to the right)
-        # For left hand, thumb extends to the left
-        thumb_horizontal_extension = abs(thumb_tip.x - wrist.x)
-        if thumb_horizontal_extension < 0.10:  # Thumb not extended outward enough
-            return False
-        
-        # Thumb tip should be above the thumb MCP joint (more extended)
+        # Thumb tip should be above the thumb MCP joint
         if thumb_tip.y >= thumb_mcp.y:
             return False
-        
+
         # Other fingers should be closed (fist-like but with thumb up)
         # Check if fingertips are below their PIP joints (fingers closed)
         finger_tips = [8, 12, 16, 20]  # Index, Middle, Ring, Pinky
         finger_pips = [6, 10, 14, 18]
-        
+
         for tip, pip in zip(finger_tips, finger_pips):
             if landmarks[tip].y < landmarks[pip].y:  # Tip is above PIP (finger extended)
                 return False
-        
+
         return True
     
     def is_pointing(self, landmarks):
@@ -717,9 +711,11 @@ class HandGestureMouseControl:
             if is_right_hand:
                 current_time = time.time()
                 
-                # Right hand thumb up - Nothing
+                # Right hand thumb up - Left click
                 if self.is_thumb_up(landmarks):
-                    pass  # No action
+                    if current_time - self.last_click_time > self.click_cooldown:
+                        pyautogui.click()
+                        self.last_click_time = current_time
                 
                 # Right hand open palm - Scroll down
                 elif self.is_open_palm(landmarks):
@@ -920,7 +916,9 @@ class HandGestureMouseControl:
                         # Determine action based on gesture and hand
                         action_text = ""
                         if is_right_hand:
-                            if self.is_open_palm(hand_landmarks):
+                            if self.is_thumb_up(hand_landmarks):
+                                action_text = " - Left Click"
+                            elif self.is_open_palm(hand_landmarks):
                                 action_text = " - Scroll Down"
                             elif self.is_victory(hand_landmarks):
                                 action_text = " - Double Click"
