@@ -566,12 +566,40 @@ class HandGestureMouseControl:
         """Check if all fingers are extended (open palm)"""
         finger_tips = [8, 12, 16, 20]  # Index, Middle, Ring, Pinky
         finger_pips = [6, 10, 14, 18]
-        
+
         for tip, pip in zip(finger_tips, finger_pips):
             if landmarks[tip].y >= landmarks[pip].y:  # Finger not extended
                 return False
-        
+
         return True
+
+    def _get_finger_curl(self, landmarks):
+        """Calculate how much the fingers are curled (0.0 = straight, 1.0 = fully bent).
+        Used for dynamic scroll speed - more curl = faster scroll."""
+        finger_tips = [8, 12, 16, 20]  # Index, Middle, Ring, Pinky
+        finger_pips = [6, 10, 14, 18]
+        finger_mcps = [5, 9, 13, 17]
+
+        total_curl = 0.0
+        for tip_idx, pip_idx, mcp_idx in zip(finger_tips, finger_pips, finger_mcps):
+            tip = landmarks[tip_idx]
+            pip = landmarks[pip_idx]
+            mcp = landmarks[mcp_idx]
+
+            # Measure how close tip is to MCP relative to fully extended
+            # When straight: tip is far from MCP (low curl)
+            # When bent: tip is close to MCP (high curl)
+            dx = tip.x - mcp.x
+            dy = tip.y - mcp.y
+            tip_to_mcp = (dx*dx + dy*dy) ** 0.5
+
+            # Normalize: ~0.2 is extended, ~0.08 is bent
+            # Map to 0-1 range (inverted: smaller distance = more curl)
+            curl = max(0.0, min(1.0, (0.18 - tip_to_mcp) / 0.10))
+            total_curl += curl
+
+        # Average curl across 4 fingers
+        return total_curl / 4.0
     
     def is_victory(self, landmarks):
         """Check if index and middle fingers are extended (victory/peace sign)"""
@@ -641,23 +669,24 @@ class HandGestureMouseControl:
         thumb_tip = landmarks[4]
         thumb_ip = landmarks[3]
         thumb_mcp = landmarks[2]  # Thumb MCP joint
-        wrist = landmarks[0]
 
-        # For thumb up, thumb tip should be above thumb IP
-        # Check vertical distance (thumb extended upward)
+        # For thumb up, thumb tip should be clearly above thumb IP
         thumb_vertical_extension = thumb_ip.y - thumb_tip.y
-        if thumb_vertical_extension < 0.03:  # Thumb tip not above IP (relaxed threshold)
+        if thumb_vertical_extension < 0.05:  # Thumb tip not significantly above IP
             return False
 
         # Thumb tip should be above the thumb MCP joint
         if thumb_tip.y >= thumb_mcp.y:
             return False
 
-        # Other fingers should be closed (fist-like but with thumb up)
-        # Check if fingertips are below their PIP joints (fingers closed)
+        # Thumb tip should be above all other fingertips (thumb is highest point)
         finger_tips = [8, 12, 16, 20]  # Index, Middle, Ring, Pinky
-        finger_pips = [6, 10, 14, 18]
+        for tip_idx in finger_tips:
+            if thumb_tip.y >= landmarks[tip_idx].y:  # Thumb not above this fingertip
+                return False
 
+        # Other fingers should be closed (fist-like but with thumb up)
+        finger_pips = [6, 10, 14, 18]
         for tip, pip in zip(finger_tips, finger_pips):
             if landmarks[tip].y < landmarks[pip].y:  # Tip is above PIP (finger extended)
                 return False
@@ -717,10 +746,15 @@ class HandGestureMouseControl:
                         pyautogui.click()
                         self.last_click_time = current_time
                 
-                # Right hand open palm - Scroll down
+                # Right hand open palm - Scroll down (speed increases as fingers bend)
                 elif self.is_open_palm(landmarks):
                     if current_time - self.last_scroll_time > self.scroll_cooldown:
-                        pyautogui.scroll(-self.scroll_speed)  # Scroll down
+                        # Calculate finger curl amount (how bent the fingers are)
+                        curl = self._get_finger_curl(landmarks)
+                        # Speed multiplier: 1.0 (straight) to 3.0 (more bent)
+                        speed_multiplier = 1.0 + curl * 2.0
+                        scroll_amount = int(self.scroll_speed * speed_multiplier)
+                        pyautogui.scroll(-scroll_amount)  # Scroll down
                         self.last_scroll_time = current_time
                 
                 # Right hand victory (two fingers) - Double click
@@ -792,10 +826,13 @@ class HandGestureMouseControl:
                         pyautogui.hotkey('win', 'tab')  # Open Task View
                         self.last_click_time = current_time
                 
-                # Left hand open palm - Scroll up
+                # Left hand open palm - Scroll up (speed increases as fingers bend)
                 elif self.is_open_palm(landmarks):
                     if current_time - self.last_scroll_time > self.scroll_cooldown:
-                        pyautogui.scroll(self.scroll_speed)  # Scroll up
+                        curl = self._get_finger_curl(landmarks)
+                        speed_multiplier = 1.0 + curl * 2.0
+                        scroll_amount = int(self.scroll_speed * speed_multiplier)
+                        pyautogui.scroll(scroll_amount)  # Scroll up
                         self.last_scroll_time = current_time
                 
                 # Left hand pinch - Nothing
