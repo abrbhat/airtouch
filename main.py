@@ -829,12 +829,18 @@ class HandGestureMouseControl:
             # Flip frame horizontally for mirror effect (only for display)
             frame = cv2.flip(frame, 1)
             
-            # Check for dual-fist toggle gesture (both hands showing fists)
+            # Check for dual-fist toggle gesture (both hands showing fists AND far apart)
             both_fists_detected = False
             if detection_result.hand_landmarks and len(detection_result.hand_landmarks) == 2:
                 current_time = time.time()
                 both_fists = all(self.is_fist(hand_landmarks) for hand_landmarks in detection_result.hand_landmarks)
-                if both_fists:
+
+                # Check if hands are far apart (wrists on opposite sides of frame)
+                wrist1_x = detection_result.hand_landmarks[0][0].x
+                wrist2_x = detection_result.hand_landmarks[1][0].x
+                hands_far_apart = abs(wrist1_x - wrist2_x) > 0.4  # At least 40% of frame width apart
+
+                if both_fists and hands_far_apart:
                     both_fists_detected = True
                     if current_time - self.last_toggle_time > self.toggle_cooldown:
                         self.toggle_control()
