@@ -8,7 +8,7 @@ A desktop application that allows you to control your mouse using hand gestures 
 - **Hard/Soft Disable System**: Two-tier disable mechanism for better control
   - **Hard Disable** (red LOCK): Both hands fist - can only be unlocked by both fists
   - **Soft Disable** (orange OFF): Right fist 2s hold - can be unlocked by pointing/palm or both fists
-- **Both Hands Fist (apart)**: Lock instantly / Unlock (hold 2s)
+- **Both Hands Fist (apart)**: Lock instantly / Unlock (hold 0.5s)
 - **Right Hand Fist (hold 1s)**: Soft disable control
 - **Right Hand Open Palm**: Enable from soft-disable + Scroll (palm = down, back = up)
 - **Right Hand Pointing**: Enable from soft-disable + Move mouse cursor
@@ -58,7 +58,7 @@ python main.py
 4. Position your hands in front of the camera and use gestures:
 
    **Both Hands:**
-   - **Fists (held apart)**: Lock instantly when ON / Hold 2s to unlock
+   - **Fists (held apart)**: Lock instantly when ON / Hold 0.5s to unlock
 
    **Right Hand Gestures:**
    - **Fist (hold 1 second)**: Soft disable (orange indicator) - only when ON
@@ -97,7 +97,7 @@ The system has three states indicated by the corner indicator:
 - **Red LOCK (Hard Disabled)**: Can only be unlocked by both hands fist gesture
 
 ### Both Hands
-- **Fist Toggle**: Make fists with both hands and hold them apart (at least 40% of frame width). When ON, this instantly locks (red). When disabled, hold for 2 seconds to unlock. Display shows countdown.
+- **Fist Toggle**: Make fists with both hands and hold them apart (at least 40% of frame width). When ON, this instantly locks (red). When disabled, hold for 0.5 seconds to unlock. Display shows countdown.
 
 ### Right Hand
 Right hand gestures can enable or soft-disable mouse control, allowing single-hand operation.
