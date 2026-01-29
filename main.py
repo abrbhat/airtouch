@@ -49,14 +49,14 @@ class CornerIndicator:
         self.window.attributes('-alpha', 0.95)
 
         # Create frame with padding for visual appeal
-        self.frame = tk.Frame(self.window, bg=self.COLOR_OFF, padx=12, pady=4)
+        self.frame = tk.Frame(self.window, bg=self.COLOR_SOFT_DISABLED, padx=12, pady=4)
         self.frame.pack(expand=True, fill='both')
 
         # Add a label to show status
         self.label = tk.Label(
             self.frame,
             text="OFF",
-            bg=self.COLOR_OFF,
+            bg=self.COLOR_SOFT_DISABLED,
             fg='white',
             font=('Segoe UI', 11, 'bold')
         )
