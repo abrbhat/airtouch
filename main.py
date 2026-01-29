@@ -179,6 +179,10 @@ class HandGestureMouseControl:
         self.last_toggle_time = 0
         self.toggle_cooldown = 1.5  # seconds between toggle actions
 
+        # Right hand fist hold detection
+        self.fist_hold_start_time = None  # When fist was first detected
+        self.fist_hold_duration = 5.0  # seconds to hold fist to disable control
+
         # Corner indicator for control status
         self.cursor_indicator = CornerIndicator(self.root)
 
@@ -272,7 +276,7 @@ class HandGestureMouseControl:
 
         Gestures:
         - Both Hands Fist (apart): Toggle mouse control on/off
-        - Right Hand Fist: Disable mouse control
+        - Right Hand Fist (hold 5s): Disable mouse control
         - Right Hand Open Palm: Enable control + Scroll (front=down, back=up)
         - Right Hand Pointing: Enable control + Move mouse cursor
         - Right Hand Thumb Out: Left click
@@ -790,13 +794,22 @@ class HandGestureMouseControl:
             if is_right_hand:
                 current_time = time.time()
 
-                # Right hand fist - Disable mouse control
+                # Right hand fist - Disable mouse control (requires holding for 5 seconds)
                 if self.is_fist(landmarks):
                     if self.is_control_active:
-                        if current_time - self.last_toggle_time > self.toggle_cooldown:
-                            self.toggle_control()
-                            self.last_toggle_time = current_time
+                        # Start tracking fist hold time if not already
+                        if self.fist_hold_start_time is None:
+                            self.fist_hold_start_time = current_time
+                        # Check if held long enough
+                        elif current_time - self.fist_hold_start_time >= self.fist_hold_duration:
+                            if current_time - self.last_toggle_time > self.toggle_cooldown:
+                                self.toggle_control()
+                                self.last_toggle_time = current_time
+                                self.fist_hold_start_time = None  # Reset after disabling
                     return  # Don't process other gestures when fist
+                else:
+                    # Reset fist hold timer when not making a fist
+                    self.fist_hold_start_time = None
 
                 # Right hand open palm - Enable control if disabled, then scroll
                 # Front-facing: scroll down, Back-facing: scroll up
@@ -1038,7 +1051,13 @@ class HandGestureMouseControl:
                         if is_right_hand:
                             if self.is_fist(hand_landmarks):
                                 if self.is_control_active:
-                                    action_text = " - Disable Control"
+                                    # Show hold progress
+                                    if self.fist_hold_start_time is not None:
+                                        held_time = time.time() - self.fist_hold_start_time
+                                        remaining = max(0, self.fist_hold_duration - held_time)
+                                        action_text = f" - Hold {remaining:.1f}s to Disable"
+                                    else:
+                                        action_text = f" - Hold {self.fist_hold_duration:.0f}s to Disable"
                             elif self.is_open_palm(hand_landmarks):
                                 if not self.is_control_active:
                                     action_text = " - Enable Control"

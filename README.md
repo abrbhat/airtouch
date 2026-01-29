@@ -6,7 +6,7 @@ A desktop application that allows you to control your mouse using hand gestures 
 
 - **Dual Hand Control**: Supports both left and right hand gestures simultaneously
 - **Both Hands Fist (apart)**: Toggle mouse control on/off
-- **Right Hand Fist**: Disable mouse control
+- **Right Hand Fist (hold 5s)**: Disable mouse control
 - **Right Hand Open Palm**: Enable control + Scroll (palm facing camera = down, back of hand = up)
 - **Right Hand Pointing**: Enable control + Move mouse cursor
 - **Right Hand Thumb Out**: Left click
@@ -58,7 +58,7 @@ python main.py
    - **Fists (held apart)**: Toggle mouse control on/off
 
    **Right Hand Gestures (can enable/disable control):**
-   - **Fist**: Disable mouse control
+   - **Fist (hold 5 seconds)**: Disable mouse control
    - **Open palm**: Enable control if off, then scroll (front-facing = down, back-facing = up)
    - **Point with index finger**: Enable control if off, then move mouse cursor
    - **Thumb out** (thumb extended, other fingers closed): Left click (requires control on)
@@ -91,7 +91,7 @@ python main.py
 ### Right Hand
 Right hand gestures can enable or disable mouse control, allowing single-hand operation.
 
-- **Fist Gesture**: Make a fist to disable mouse control. This only works when control is currently active.
+- **Fist Gesture**: Make a fist and hold for 5 seconds to disable mouse control. The display shows a countdown while holding. This only works when control is currently active.
 - **Open Palm Gesture**: Extend all fingers. If control is off, this enables it. If control is on, this scrolls the page. **Palm orientation matters**: palm facing camera scrolls down, back of hand facing camera scrolls up. Curl your fingers slightly to increase scroll speed (up to 3x). The display shows "(FRONT)" or "(BACK)" to indicate detected orientation.
 - **Pointing Gesture**: Extend only your index finger while keeping other fingers closed. If control is off, this enables it. If control is on, move your hand to control the mouse cursor. The mouse moves relative to your finger movement (not absolute position). Movement is smoothed for natural control and stops immediately when you stop moving.
 - **Thumb Out Gesture**: Extend your thumb outward while keeping other fingers closed. Performs a left mouse click. Requires control to be active.
