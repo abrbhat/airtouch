@@ -1046,10 +1046,11 @@ class HandGestureMouseControl:
                             palm_facing = self.is_palm_facing_camera(hand_landmarks, is_right_hand)
                             gesture_name += " (FRONT)" if palm_facing else " (BACK)"
 
-                        # Determine action based on gesture and hand
+                        # Determine action based on gesture_name (already computed above)
                         action_text = ""
+                        base_gesture = gesture_name.split(" (")[0]  # Remove (FRONT)/(BACK) suffix
                         if is_right_hand:
-                            if self.is_fist(hand_landmarks):
+                            if base_gesture == "FIST":
                                 if self.is_control_active:
                                     # Show hold progress
                                     if self.fist_hold_start_time is not None:
@@ -1058,31 +1059,31 @@ class HandGestureMouseControl:
                                         action_text = f" - Hold {remaining:.1f}s to Disable"
                                     else:
                                         action_text = f" - Hold {self.fist_hold_duration:.0f}s to Disable"
-                            elif self.is_open_palm(hand_landmarks):
+                            elif base_gesture == "OPEN PALM":
                                 if not self.is_control_active:
                                     action_text = " - Enable Control"
                                 elif self.is_palm_facing_camera(hand_landmarks, is_right_hand=True):
                                     action_text = " - Scroll Down"
                                 else:
                                     action_text = " - Scroll Up"
-                            elif self.is_thumb_up(hand_landmarks):
+                            elif base_gesture == "THUMB OUT":
                                 if self.is_control_active:
                                     action_text = " - Left Click"
-                            elif self.is_victory(hand_landmarks):
+                            elif base_gesture == "VICTORY":
                                 if self.is_control_active:
                                     action_text = " - Double Click"
-                            elif self.is_pointing(hand_landmarks):
+                            elif base_gesture == "POINTING":
                                 if not self.is_control_active:
                                     action_text = " - Enable Control"
                                 else:
                                     action_text = " - Mouse Move"
                         elif is_left_hand:
                             if self.is_control_active:
-                                if self.is_pointing(hand_landmarks):
+                                if base_gesture == "POINTING":
                                     action_text = " - Left Click"
-                                elif self.is_victory(hand_landmarks):
+                                elif base_gesture == "VICTORY":
                                     action_text = " - Open Task View"
-                                elif self.is_open_palm(hand_landmarks):
+                                elif base_gesture == "OPEN PALM":
                                     action_text = " - Scroll Up"
                         
                         gesture_text = f"{hand_label} Hand: {gesture_name}{action_text}"
