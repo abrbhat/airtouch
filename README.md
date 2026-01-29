@@ -6,7 +6,7 @@ A desktop application that allows you to control your mouse using hand gestures 
 
 - **Dual Hand Control**: Supports both left and right hand gestures simultaneously
 - **Both Hands Fist (apart)**: Toggle mouse control on/off
-- **Right Hand Fist (hold 5s)**: Disable mouse control
+- **Right Hand Fist (hold 2s)**: Disable mouse control
 - **Right Hand Open Palm**: Enable control + Scroll (palm facing camera = down, back of hand = up)
 - **Right Hand Pointing**: Enable control + Move mouse cursor
 - **Right Hand Thumb Out**: Left click
@@ -58,7 +58,7 @@ python main.py
    - **Fists (held apart)**: Toggle mouse control on/off
 
    **Right Hand Gestures (can enable/disable control):**
-   - **Fist (hold 5 seconds)**: Disable mouse control
+   - **Fist (hold 2 seconds)**: Disable mouse control
    - **Open palm**: Enable control if off, then scroll (front-facing = down, back-facing = up)
    - **Point with index finger**: Enable control if off, then move mouse cursor
    - **Thumb out** (thumb extended, other fingers closed): Left click (requires control on)

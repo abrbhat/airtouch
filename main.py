@@ -181,7 +181,7 @@ class HandGestureMouseControl:
 
         # Right hand fist hold detection
         self.fist_hold_start_time = None  # When fist was first detected
-        self.fist_hold_duration = 5.0  # seconds to hold fist to disable control
+        self.fist_hold_duration = 2.0  # seconds to hold fist to disable control
 
         # Corner indicator for control status
         self.cursor_indicator = CornerIndicator(self.root)
@@ -276,7 +276,7 @@ class HandGestureMouseControl:
 
         Gestures:
         - Both Hands Fist (apart): Toggle mouse control on/off
-        - Right Hand Fist (hold 5s): Disable mouse control
+        - Right Hand Fist (hold 2s): Disable mouse control
         - Right Hand Open Palm: Enable control + Scroll (front=down, back=up)
         - Right Hand Pointing: Enable control + Move mouse cursor
         - Right Hand Thumb Out: Left click
