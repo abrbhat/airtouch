@@ -811,42 +811,13 @@ class HandGestureMouseControl:
                 # Reset fist hold timer when not making a fist
                 self.fist_hold_start_time = None
 
-                # Right hand open palm - Enable control if disabled, then scroll
-                # Front-facing: scroll down, Back-facing: scroll up
-                # Check this BEFORE thumb_up since open palm also has extended thumb
-                if self.is_open_palm(landmarks):
-                    # Enable control if disabled
-                    if not self.is_control_active:
-                        if current_time - self.last_toggle_time > self.toggle_cooldown:
-                            self.toggle_control()
-                            self.last_toggle_time = current_time
-                        return  # Skip scrolling on the enabling frame
-                    # Scroll when control is active
-                    if current_time - self.last_scroll_time > self.scroll_cooldown:
-                        # Calculate finger curl amount (how bent the fingers are)
-                        curl = self._get_finger_curl(landmarks)
-                        # Speed multiplier: 1.0 (straight) to 3.0 (more bent)
-                        speed_multiplier = 1.0 + curl * 2.0
-                        scroll_amount = int(self.scroll_speed * speed_multiplier)
-                        # Determine scroll direction based on palm orientation
-                        if self.is_palm_facing_camera(landmarks, is_right_hand=True):
-                            pyautogui.scroll(-scroll_amount)  # Front-facing: scroll down
-                        else:
-                            pyautogui.scroll(scroll_amount)   # Back-facing: scroll up
-                        self.last_scroll_time = current_time
+                # Order matches get_gesture_name() to ensure consistent behavior
 
                 # Right hand thumb out - Left click (requires control active)
-                elif self.is_thumb_up(landmarks):
+                if self.is_thumb_up(landmarks):
                     if self.is_control_active:
                         if current_time - self.last_click_time > self.click_cooldown:
                             pyautogui.click()
-                            self.last_click_time = current_time
-
-                # Right hand victory (two fingers) - Double click (requires control active)
-                elif self.is_victory(landmarks):
-                    if self.is_control_active:
-                        if current_time - self.last_click_time > self.click_cooldown:
-                            pyautogui.doubleClick()
                             self.last_click_time = current_time
 
                 # Right hand pointing - Enable control if disabled, then move mouse
@@ -897,7 +868,37 @@ class HandGestureMouseControl:
                     # Update previous finger position
                     self.last_finger_x = finger_x
                     self.last_finger_y = finger_y
-            
+
+                # Right hand open palm - Enable control if disabled, then scroll
+                # Front-facing: scroll down, Back-facing: scroll up
+                elif self.is_open_palm(landmarks):
+                    # Enable control if disabled
+                    if not self.is_control_active:
+                        if current_time - self.last_toggle_time > self.toggle_cooldown:
+                            self.toggle_control()
+                            self.last_toggle_time = current_time
+                        return  # Skip scrolling on the enabling frame
+                    # Scroll when control is active
+                    if current_time - self.last_scroll_time > self.scroll_cooldown:
+                        # Calculate finger curl amount (how bent the fingers are)
+                        curl = self._get_finger_curl(landmarks)
+                        # Speed multiplier: 1.0 (straight) to 3.0 (more bent)
+                        speed_multiplier = 1.0 + curl * 2.0
+                        scroll_amount = int(self.scroll_speed * speed_multiplier)
+                        # Determine scroll direction based on palm orientation
+                        if self.is_palm_facing_camera(landmarks, is_right_hand=True):
+                            pyautogui.scroll(-scroll_amount)  # Front-facing: scroll down
+                        else:
+                            pyautogui.scroll(scroll_amount)   # Back-facing: scroll up
+                        self.last_scroll_time = current_time
+
+                # Right hand victory (two fingers) - Double click (requires control active)
+                elif self.is_victory(landmarks):
+                    if self.is_control_active:
+                        if current_time - self.last_click_time > self.click_cooldown:
+                            pyautogui.doubleClick()
+                            self.last_click_time = current_time
+
             # LEFT HAND GESTURES (require control to be active)
             elif is_left_hand and self.is_control_active:
                 current_time = time.time()
