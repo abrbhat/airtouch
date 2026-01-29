@@ -573,6 +573,45 @@ class HandGestureMouseControl:
 
         return True
 
+    def is_palm_facing_camera(self, landmarks, is_right_hand=True):
+        """Detect if palm is facing toward the camera (front) or away (back).
+
+        Uses the cross product of palm plane vectors to determine the normal direction.
+        For a right hand with palm facing camera, the normal points toward the camera (positive z).
+
+        Args:
+            landmarks: Hand landmarks from MediaPipe
+            is_right_hand: True if this is a right hand, False for left hand
+
+        Returns:
+            True if palm faces camera (front), False if back of hand faces camera (back)
+        """
+        wrist = landmarks[0]
+        index_mcp = landmarks[5]   # Base of index finger
+        pinky_mcp = landmarks[17]  # Base of pinky finger
+
+        # Calculate vectors from wrist to finger MCPs
+        # Vector A: wrist -> index MCP
+        ax = index_mcp.x - wrist.x
+        ay = index_mcp.y - wrist.y
+        az = index_mcp.z - wrist.z if hasattr(index_mcp, 'z') else 0
+
+        # Vector B: wrist -> pinky MCP
+        bx = pinky_mcp.x - wrist.x
+        by = pinky_mcp.y - wrist.y
+        bz = pinky_mcp.z - wrist.z if hasattr(pinky_mcp, 'z') else 0
+
+        # Cross product A × B gives palm normal
+        # We only need the z-component to determine facing direction
+        normal_z = ax * by - ay * bx
+
+        # For right hand: negative normal_z = palm facing camera
+        # For left hand: positive normal_z = palm facing camera
+        if is_right_hand:
+            return normal_z < 0
+        else:
+            return normal_z > 0
+
     def _get_finger_curl(self, landmarks):
         """Calculate how much the fingers are curled (0.0 = straight, 1.0 = fully bent).
         Used for dynamic scroll speed - more curl = faster scroll."""
@@ -600,6 +639,7 @@ class HandGestureMouseControl:
 
         # Average curl across 4 fingers
         return total_curl / 4.0
+
     
     def is_victory(self, landmarks):
         """Check if index and middle fingers are extended (victory/peace sign)"""
@@ -751,15 +791,10 @@ class HandGestureMouseControl:
             # RIGHT HAND GESTURES
             if is_right_hand:
                 current_time = time.time()
-                
-                # Right hand thumb up - Left click
-                if self.is_thumb_up(landmarks):
-                    if current_time - self.last_click_time > self.click_cooldown:
-                        pyautogui.click()
-                        self.last_click_time = current_time
-                
-                # Right hand open palm - Scroll down (speed increases as fingers bend)
-                elif self.is_open_palm(landmarks):
+
+                # Right hand open palm - Scroll down (speed increases as fingers curl)
+                # Check this BEFORE thumb_up since open palm also has extended thumb
+                if self.is_open_palm(landmarks):
                     if current_time - self.last_scroll_time > self.scroll_cooldown:
                         # Calculate finger curl amount (how bent the fingers are)
                         curl = self._get_finger_curl(landmarks)
@@ -768,7 +803,13 @@ class HandGestureMouseControl:
                         scroll_amount = int(self.scroll_speed * speed_multiplier)
                         pyautogui.scroll(-scroll_amount)  # Scroll down
                         self.last_scroll_time = current_time
-                
+
+                # Right hand thumb out - Left click
+                elif self.is_thumb_up(landmarks):
+                    if current_time - self.last_click_time > self.click_cooldown:
+                        pyautogui.click()
+                        self.last_click_time = current_time
+
                 # Right hand victory (two fingers) - Double click
                 elif self.is_victory(landmarks):
                     if current_time - self.last_click_time > self.click_cooldown:
@@ -961,7 +1002,12 @@ class HandGestureMouseControl:
                         
                         # Get gesture name
                         gesture_name = self.get_gesture_name(hand_landmarks)
-                        
+
+                        # Add palm orientation for open palm gesture
+                        if gesture_name == "OPEN PALM":
+                            palm_facing = self.is_palm_facing_camera(hand_landmarks, is_right_hand)
+                            gesture_name += " (FRONT)" if palm_facing else " (BACK)"
+
                         # Determine action based on gesture and hand
                         action_text = ""
                         if is_right_hand:
