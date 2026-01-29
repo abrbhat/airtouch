@@ -192,7 +192,7 @@ class HandGestureMouseControl:
 
         # Both fists hold detection (for unlocking hard-disabled state)
         self.both_fists_hold_start_time = None
-        self.both_fists_hold_duration = 2.0  # seconds to hold both fists to unlock
+        self.both_fists_hold_duration = 0.5  # seconds to hold both fists to unlock
 
         # Right hand fist hold detection
         self.fist_hold_start_time = None  # When fist was first detected
@@ -290,7 +290,7 @@ class HandGestureMouseControl:
         - Enable Mouse Control: Activate gesture control
 
         Gestures:
-        - Both Hands Fist (apart): Lock instantly / Unlock (hold 2s)
+        - Both Hands Fist (apart): Lock instantly / Unlock (hold 0.5s)
         - Right Hand Fist (hold 1s): Soft disable (orange)
         - Right Hand Open Palm: Enable from soft + Scroll
         - Right Hand Pointing: Enable from soft + Move cursor
