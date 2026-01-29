@@ -807,14 +807,14 @@ class HandGestureMouseControl:
                                 self.last_toggle_time = current_time
                                 self.fist_hold_start_time = None  # Reset after disabling
                     return  # Don't process other gestures when fist
-                else:
-                    # Reset fist hold timer when not making a fist
-                    self.fist_hold_start_time = None
+
+                # Reset fist hold timer when not making a fist
+                self.fist_hold_start_time = None
 
                 # Right hand open palm - Enable control if disabled, then scroll
                 # Front-facing: scroll down, Back-facing: scroll up
                 # Check this BEFORE thumb_up since open palm also has extended thumb
-                elif self.is_open_palm(landmarks):
+                if self.is_open_palm(landmarks):
                     # Enable control if disabled
                     if not self.is_control_active:
                         if current_time - self.last_toggle_time > self.toggle_cooldown:
