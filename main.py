@@ -273,7 +273,7 @@ class HandGestureMouseControl:
         Gestures:
         - Both Hands Fist (apart): Toggle mouse control on/off
         - Right Hand Thumb Out: Left click
-        - Right Hand Open Palm: Scroll down
+        - Right Hand Open Palm: Scroll (front=down, back=up)
         - Right Hand Victory (2 fingers): Double click
         - Right Hand Pointing: Move mouse cursor
         - Left Hand Pointing: Left click
@@ -792,7 +792,8 @@ class HandGestureMouseControl:
             if is_right_hand:
                 current_time = time.time()
 
-                # Right hand open palm - Scroll down (speed increases as fingers curl)
+                # Right hand open palm - Scroll based on palm orientation
+                # Front-facing: scroll down, Back-facing: scroll up
                 # Check this BEFORE thumb_up since open palm also has extended thumb
                 if self.is_open_palm(landmarks):
                     if current_time - self.last_scroll_time > self.scroll_cooldown:
@@ -801,7 +802,11 @@ class HandGestureMouseControl:
                         # Speed multiplier: 1.0 (straight) to 3.0 (more bent)
                         speed_multiplier = 1.0 + curl * 2.0
                         scroll_amount = int(self.scroll_speed * speed_multiplier)
-                        pyautogui.scroll(-scroll_amount)  # Scroll down
+                        # Determine scroll direction based on palm orientation
+                        if self.is_palm_facing_camera(landmarks, is_right_hand=True):
+                            pyautogui.scroll(-scroll_amount)  # Front-facing: scroll down
+                        else:
+                            pyautogui.scroll(scroll_amount)   # Back-facing: scroll up
                         self.last_scroll_time = current_time
 
                 # Right hand thumb out - Left click
@@ -1014,7 +1019,10 @@ class HandGestureMouseControl:
                             if self.is_thumb_up(hand_landmarks):
                                 action_text = " - Left Click"
                             elif self.is_open_palm(hand_landmarks):
-                                action_text = " - Scroll Down"
+                                if self.is_palm_facing_camera(hand_landmarks, is_right_hand=True):
+                                    action_text = " - Scroll Down"
+                                else:
+                                    action_text = " - Scroll Up"
                             elif self.is_victory(hand_landmarks):
                                 action_text = " - Double Click"
                             elif self.is_pointing(hand_landmarks):
