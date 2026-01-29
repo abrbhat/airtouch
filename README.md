@@ -6,16 +6,17 @@ A desktop application that allows you to control your mouse using hand gestures 
 
 - **Dual Hand Control**: Supports both left and right hand gestures simultaneously
 - **Both Hands Fist (apart)**: Toggle mouse control on/off
+- **Right Hand Fist**: Disable mouse control
+- **Right Hand Open Palm**: Enable control + Scroll (palm facing camera = down, back of hand = up)
+- **Right Hand Pointing**: Enable control + Move mouse cursor
 - **Right Hand Thumb Out**: Left click
-- **Right Hand Open Palm**: Scroll down (speed increases as fingers curl)
 - **Right Hand Victory**: Double click
-- **Right Hand Pointing**: Move the mouse cursor by pointing with your right hand index finger (relative movement)
-- **Left Hand Pointing**: Left mouse click
-- **Left Hand Victory**: Open Task View (Windows)
-- **Left Hand Open Palm**: Scroll up (speed increases as fingers curl)
+- **Left Hand Pointing**: Left mouse click (requires control active)
+- **Left Hand Victory**: Open Task View (requires control active)
+- **Left Hand Open Palm**: Scroll up (requires control active)
 - **Real-time Hand Tracking**: Uses MediaPipe for accurate hand detection
 - **Smooth Control**: Built-in smoothing for natural mouse movement
-- **Visual Feedback**: Color-coded hand detection (Blue for left, Green for right) with gesture names
+- **Visual Feedback**: Color-coded hand detection (Blue for left, Green for right) with gesture names and palm orientation
 - **Corner Indicator**: Shows ON/OFF status in screen corner when camera is active
 - **Settings Tab**: Adjustable parameters in real-time (scroll speed, sensitivity, smoothing, etc.)
 
@@ -56,13 +57,14 @@ python main.py
    **Both Hands:**
    - **Fists (held apart)**: Toggle mouse control on/off
 
-   **Right Hand Gestures:**
-   - **Thumb out** (thumb extended, other fingers closed): Left click
-   - **Open palm** (all fingers extended): Scroll down (curl fingers for faster scroll)
-   - **Victory sign** (index and middle fingers extended): Double click
-   - **Point with index finger**: Move mouse cursor (relative movement)
+   **Right Hand Gestures (can enable/disable control):**
+   - **Fist**: Disable mouse control
+   - **Open palm**: Enable control if off, then scroll (front-facing = down, back-facing = up)
+   - **Point with index finger**: Enable control if off, then move mouse cursor
+   - **Thumb out** (thumb extended, other fingers closed): Left click (requires control on)
+   - **Victory sign** (index and middle fingers extended): Double click (requires control on)
 
-   **Left Hand Gestures:**
+   **Left Hand Gestures (require control to be active):**
    - **Point with index finger**: Left click
    - **Victory sign** (index and middle fingers extended): Open Task View
    - **Open palm** (all fingers extended): Scroll up (curl fingers for faster scroll)
@@ -87,15 +89,20 @@ python main.py
 - **Fist Toggle**: Make fists with both hands and hold them apart (at least 40% of frame width). This toggles mouse control on/off. A corner indicator shows the current state.
 
 ### Right Hand
-- **Thumb Out Gesture**: Extend your thumb outward (in any direction) while keeping other fingers closed. This performs a left mouse click.
-- **Open Palm Gesture**: Extend all fingers (thumb, index, middle, ring, and pinky). This gesture scrolls the page down. Curl your fingers slightly to increase scroll speed (up to 3x). The base scroll speed can be adjusted in the Settings tab.
-- **Victory Gesture**: Extend your index and middle fingers while keeping other fingers closed (peace sign). This performs a double click.
-- **Pointing Gesture**: Extend only your index finger while keeping other fingers closed. Move your hand to control the mouse cursor position. The mouse moves relative to your finger movement (not based on absolute position in the frame). The mouse movement is smoothed for natural control and stops immediately when you stop moving your finger.
+Right hand gestures can enable or disable mouse control, allowing single-hand operation.
+
+- **Fist Gesture**: Make a fist to disable mouse control. This only works when control is currently active.
+- **Open Palm Gesture**: Extend all fingers. If control is off, this enables it. If control is on, this scrolls the page. **Palm orientation matters**: palm facing camera scrolls down, back of hand facing camera scrolls up. Curl your fingers slightly to increase scroll speed (up to 3x). The display shows "(FRONT)" or "(BACK)" to indicate detected orientation.
+- **Pointing Gesture**: Extend only your index finger while keeping other fingers closed. If control is off, this enables it. If control is on, move your hand to control the mouse cursor. The mouse moves relative to your finger movement (not absolute position). Movement is smoothed for natural control and stops immediately when you stop moving.
+- **Thumb Out Gesture**: Extend your thumb outward while keeping other fingers closed. Performs a left mouse click. Requires control to be active.
+- **Victory Gesture**: Extend your index and middle fingers (peace sign). Performs a double click. Requires control to be active.
 
 ### Left Hand
-- **Pointing Gesture**: Extend only your index finger while keeping other fingers closed. This gesture performs a left mouse click. There's a cooldown period between clicks to prevent accidental multiple clicks.
-- **Victory Gesture**: Extend your index and middle fingers while keeping other fingers closed (peace sign). This gesture opens Windows Task View (Win+Tab). There's a cooldown period to prevent multiple triggers.
-- **Open Palm Gesture**: Extend all fingers (thumb, index, middle, ring, and pinky). This gesture scrolls the page up. Curl your fingers slightly to increase scroll speed (up to 3x). The base scroll speed can be adjusted in the Settings tab.
+Left hand gestures only work when mouse control is active.
+
+- **Pointing Gesture**: Extend only your index finger while keeping other fingers closed. Performs a left mouse click. There's a cooldown period between clicks.
+- **Victory Gesture**: Extend your index and middle fingers (peace sign). Opens Windows Task View (Win+Tab). There's a cooldown period to prevent multiple triggers.
+- **Open Palm Gesture**: Extend all fingers. Scrolls the page up. Curl your fingers slightly to increase scroll speed (up to 3x).
 
 ## Tips
 
