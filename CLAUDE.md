@@ -44,16 +44,23 @@ The entire application is in `main.py` as a single `HandGestureMouseControl` cla
 - Palm orientation detection uses cross product of palm plane vectors
 - Gesture detection order in `get_gesture_name()` determines priority (thumb_up > fist > pointing > open_palm > victory)
 
+## Control States
+
+The system uses three control states stored in `self.control_state`:
+- `'ON'` - Control active (green indicator)
+- `'SOFT_DISABLED'` - Soft disabled (orange indicator) - can be re-enabled by pointing/palm
+- `'HARD_DISABLED'` - Hard disabled (red LOCK indicator) - can only be unlocked by both fists
+
 ## Gesture Mapping
 
-| Hand  | Gesture         | Action                              | Notes                          |
-|-------|-----------------|-------------------------------------|--------------------------------|
-| Both  | Fist (apart)    | Toggle control on/off               | Hands must be 40% apart        |
-| Right | Fist (hold 2s)  | Disable control                     | Only when control is active    |
-| Right | Thumb Out       | Left click                          | Requires control active        |
-| Right | Pointing        | Enable control + Move cursor        | Enables if control is off      |
-| Right | Open Palm       | Enable control + Scroll             | Front=down, Back=up            |
-| Right | Victory         | Win+Tab (Task View)                 | Requires control active        |
-| Left  | Pointing        | Left click                          | Requires control active        |
-| Left  | Victory         | Win+Tab (Task View)                 | Requires control active        |
-| Left  | Open Palm       | Scroll up                           | Requires control active        |
+| Hand  | Gesture         | Action                              | Notes                                    |
+|-------|-----------------|-------------------------------------|------------------------------------------|
+| Both  | Fist (apart)    | Hard toggle (ON ↔ HARD_DISABLED)    | Hands must be 40% apart                  |
+| Right | Fist (hold 2s)  | Soft disable (→ SOFT_DISABLED)      | Only when ON                             |
+| Right | Thumb Out       | Left click                          | Requires ON                              |
+| Right | Pointing        | Enable from soft + Move cursor      | Only enables from SOFT_DISABLED          |
+| Right | Open Palm       | Enable from soft + Scroll           | Front=down, Back=up; only from SOFT      |
+| Right | Victory         | Win+Tab (Task View)                 | Requires ON                              |
+| Left  | Pointing        | Left click                          | Requires ON                              |
+| Left  | Victory         | Win+Tab (Task View)                 | Requires ON                              |
+| Left  | Open Palm       | Scroll up                           | Requires ON                              |
