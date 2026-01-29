@@ -8,8 +8,8 @@ A desktop application that allows you to control your mouse using hand gestures 
 - **Hard/Soft Disable System**: Two-tier disable mechanism for better control
   - **Hard Disable** (red LOCK): Both hands fist - can only be unlocked by both fists
   - **Soft Disable** (orange OFF): Right fist 2s hold - can be unlocked by pointing/palm or both fists
-- **Both Hands Fist (apart)**: Hard toggle (ON ↔ LOCKED)
-- **Right Hand Fist (hold 2s)**: Soft disable control
+- **Both Hands Fist (apart)**: Lock instantly / Unlock (hold 2s)
+- **Right Hand Fist (hold 1s)**: Soft disable control
 - **Right Hand Open Palm**: Enable from soft-disable + Scroll (palm = down, back = up)
 - **Right Hand Pointing**: Enable from soft-disable + Move mouse cursor
 - **Right Hand Thumb Out**: Left click
@@ -58,10 +58,10 @@ python main.py
 4. Position your hands in front of the camera and use gestures:
 
    **Both Hands:**
-   - **Fists (held apart)**: Hard toggle - ON ↔ LOCKED (red indicator)
+   - **Fists (held apart)**: Lock instantly when ON / Hold 2s to unlock
 
    **Right Hand Gestures:**
-   - **Fist (hold 2 seconds)**: Soft disable (orange indicator) - only when ON
+   - **Fist (hold 1 second)**: Soft disable (orange indicator) - only when ON
    - **Open palm**: Enable from soft-disable, then scroll (front = down, back = up)
    - **Point with index finger**: Enable from soft-disable, then move mouse cursor
    - **Thumb out** (thumb extended, other fingers closed): Left click (requires ON)
@@ -97,12 +97,12 @@ The system has three states indicated by the corner indicator:
 - **Red LOCK (Hard Disabled)**: Can only be unlocked by both hands fist gesture
 
 ### Both Hands
-- **Fist Toggle**: Make fists with both hands and hold them apart (at least 40% of frame width). This performs a hard toggle: ON → LOCKED (red), or any disabled state → ON.
+- **Fist Toggle**: Make fists with both hands and hold them apart (at least 40% of frame width). When ON, this instantly locks (red). When disabled, hold for 2 seconds to unlock. Display shows countdown.
 
 ### Right Hand
 Right hand gestures can enable or soft-disable mouse control, allowing single-hand operation.
 
-- **Fist Gesture**: Make a fist and hold for 2 seconds to soft-disable mouse control (orange OFF). The display shows a countdown while holding. This only works when control is ON.
+- **Fist Gesture**: Make a fist and hold for 1 second to soft-disable mouse control (orange OFF). The display shows a countdown while holding. This only works when control is ON.
 - **Open Palm Gesture**: Extend all fingers. If soft-disabled (orange), this enables control. If hard-disabled (red LOCK), this does nothing. If ON, this scrolls the page. **Palm orientation matters**: palm facing camera scrolls down, back of hand facing camera scrolls up.
 - **Pointing Gesture**: Extend only your index finger. If soft-disabled (orange), this enables control. If hard-disabled (red LOCK), this does nothing. If ON, move your hand to control the mouse cursor.
 - **Thumb Out Gesture**: Extend your thumb outward while keeping other fingers closed. Performs a left mouse click. Requires control to be ON.

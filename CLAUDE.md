@@ -55,8 +55,8 @@ The system uses three control states stored in `self.control_state`:
 
 | Hand  | Gesture         | Action                              | Notes                                    |
 |-------|-----------------|-------------------------------------|------------------------------------------|
-| Both  | Fist (apart)    | Hard toggle (ON ↔ HARD_DISABLED)    | Hands must be 40% apart                  |
-| Right | Fist (hold 2s)  | Soft disable (→ SOFT_DISABLED)      | Only when ON                             |
+| Both  | Fist (apart)    | Lock instant / Unlock (hold 2s)     | Hands must be 40% apart                  |
+| Right | Fist (hold 1s)  | Soft disable (→ SOFT_DISABLED)      | Only when ON                             |
 | Right | Thumb Out       | Left click                          | Requires ON                              |
 | Right | Pointing        | Enable from soft + Move cursor      | Only enables from SOFT_DISABLED          |
 | Right | Open Palm       | Enable from soft + Scroll           | Front=down, Back=up; only from SOFT      |
