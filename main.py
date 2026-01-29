@@ -38,7 +38,7 @@ class CornerIndicator:
         self.visible = False
         self.window = None
         self.state = 'SOFT_DISABLED'
-        self.width = 80
+        self.width = 90
         self.height = 32
 
     def create_window(self):
