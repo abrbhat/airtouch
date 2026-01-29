@@ -28,16 +28,17 @@ else:
 class CornerIndicator:
     """Visual indicator fixed in screen corner showing gesture control status."""
 
-    COLOR_ON = '#22c55e'   # Green
-    COLOR_OFF = '#6b7280'  # Gray
+    COLOR_ON = '#22c55e'           # Green - control active
+    COLOR_SOFT_DISABLED = '#f59e0b'  # Orange/Amber - soft disabled
+    COLOR_HARD_DISABLED = '#ef4444'  # Red - hard disabled
 
     def __init__(self, parent_root, corner='bottom_right'):
         self.parent = parent_root
         self.corner = corner
         self.visible = False
         self.window = None
-        self.is_on = False
-        self.width = 70
+        self.state = 'SOFT_DISABLED'
+        self.width = 80
         self.height = 32
 
     def create_window(self):
@@ -86,14 +87,21 @@ class CornerIndicator:
 
         self.window.geometry(f'{self.width}x{self.height}+{x}+{y}')
 
-    def set_state(self, is_on):
-        """Set the indicator state (ON or OFF)."""
+    def set_state(self, state):
+        """Set the indicator state: 'ON', 'SOFT_DISABLED', 'HARD_DISABLED'."""
         if not self.window:
             self.create_window()
 
-        self.is_on = is_on
-        color = self.COLOR_ON if is_on else self.COLOR_OFF
-        text = "ON" if is_on else "OFF"
+        self.state = state
+        if state == 'ON':
+            color = self.COLOR_ON
+            text = "ON"
+        elif state == 'SOFT_DISABLED':
+            color = self.COLOR_SOFT_DISABLED
+            text = "OFF"
+        else:  # HARD_DISABLED
+            color = self.COLOR_HARD_DISABLED
+            text = "LOCK"
 
         self.frame.configure(bg=color)
         self.label.configure(bg=color, text=text)
@@ -151,7 +159,10 @@ class HandGestureMouseControl:
         # Camera setup
         self.cap = None
         self.is_running = False
-        self.is_control_active = False
+        # Control state: 'ON', 'SOFT_DISABLED', 'HARD_DISABLED'
+        # - SOFT_DISABLED: Can be re-enabled by pointing/palm or both fists
+        # - HARD_DISABLED: Can only be re-enabled by both fists
+        self.control_state = 'SOFT_DISABLED'
         
         # Screen dimensions
         self.screen_width, self.screen_height = pyautogui.size()
@@ -275,10 +286,10 @@ class HandGestureMouseControl:
         - Enable Mouse Control: Activate gesture control
 
         Gestures:
-        - Both Hands Fist (apart): Toggle mouse control on/off
-        - Right Hand Fist (hold 2s): Disable mouse control
-        - Right Hand Open Palm: Enable control + Scroll (front=down, back=up)
-        - Right Hand Pointing: Enable control + Move mouse cursor
+        - Both Hands Fist (apart): Hard toggle (ON/LOCKED)
+        - Right Hand Fist (hold 2s): Soft disable (orange)
+        - Right Hand Open Palm: Enable from soft + Scroll
+        - Right Hand Pointing: Enable from soft + Move cursor
         - Right Hand Thumb Out: Left click
         - Right Hand Victory (2 fingers): Open Task View
         - Left Hand Pointing: Left click
@@ -469,13 +480,13 @@ class HandGestureMouseControl:
             self.camera_btn.config(text="Stop Camera")
             self.control_btn.config(state=tk.NORMAL)
             self.status_label.config(text="Status: Camera On", foreground="green")
-            # Show indicator in OFF state when camera starts
-            self.cursor_indicator.set_state(False)
+            # Show indicator in SOFT_DISABLED state when camera starts
+            self.cursor_indicator.set_state('SOFT_DISABLED')
             self.cursor_indicator.show()
             self.update_frame()
         else:
             self.is_running = False
-            self.is_control_active = False
+            self.control_state = 'SOFT_DISABLED'
             if self.cap:
                 self.cap.release()
             self.camera_btn.config(text="Start Camera")
@@ -485,9 +496,10 @@ class HandGestureMouseControl:
             # Hide indicator when camera stops
             self.cursor_indicator.hide()
             
-    def toggle_control(self):
-        self.is_control_active = not self.is_control_active
-        if self.is_control_active:
+    def set_control_state(self, new_state):
+        """Set control state: 'ON', 'SOFT_DISABLED', 'HARD_DISABLED'"""
+        self.control_state = new_state
+        if new_state == 'ON':
             self.control_btn.config(text="Disable Mouse Control")
             self.status_label.config(text="Status: Mouse Control Active", foreground="blue")
             # Reset finger tracking when enabling control
@@ -496,12 +508,24 @@ class HandGestureMouseControl:
             self.smoothed_dx = 0.0
             self.smoothed_dy = 0.0
             # Update indicator to ON state
-            self.cursor_indicator.set_state(True)
-        else:
+            self.cursor_indicator.set_state('ON')
+        elif new_state == 'SOFT_DISABLED':
             self.control_btn.config(text="Enable Mouse Control")
-            self.status_label.config(text="Status: Camera On", foreground="green")
-            # Update indicator to OFF state
-            self.cursor_indicator.set_state(False)
+            self.status_label.config(text="Status: Soft Disabled", foreground="orange")
+            # Update indicator to SOFT state
+            self.cursor_indicator.set_state('SOFT_DISABLED')
+        else:  # HARD_DISABLED
+            self.control_btn.config(text="Enable Mouse Control")
+            self.status_label.config(text="Status: Hard Disabled (use both fists)", foreground="red")
+            # Update indicator to HARD state
+            self.cursor_indicator.set_state('HARD_DISABLED')
+
+    def toggle_control(self):
+        """Legacy toggle - toggles between ON and SOFT_DISABLED"""
+        if self.control_state == 'ON':
+            self.set_control_state('SOFT_DISABLED')
+        else:
+            self.set_control_state('ON')
     
     def calculate_distance(self, point1, point2):
         """Calculate 3D distance between two points"""
@@ -794,17 +818,18 @@ class HandGestureMouseControl:
             if is_right_hand:
                 current_time = time.time()
 
-                # Right hand fist - Disable mouse control (requires holding for 2 seconds)
+                # Right hand fist - Soft disable mouse control (requires holding for 2 seconds)
                 # Exclude thumb-out gesture (fist detection is too lenient on thumb)
+                # Only works when control is ON (can't soft-disable from hard-disabled state)
                 if self.is_fist(landmarks) and not self.is_thumb_up(landmarks):
-                    if self.is_control_active:
+                    if self.control_state == 'ON':
                         # Start tracking fist hold time if not already
                         if self.fist_hold_start_time is None:
                             self.fist_hold_start_time = current_time
                         # Check if held long enough
                         elif current_time - self.fist_hold_start_time >= self.fist_hold_duration:
                             if current_time - self.last_toggle_time > self.toggle_cooldown:
-                                self.toggle_control()
+                                self.set_control_state('SOFT_DISABLED')
                                 self.last_toggle_time = current_time
                                 self.fist_hold_start_time = None  # Reset after disabling
                     return  # Don't process other gestures when fist
@@ -816,19 +841,21 @@ class HandGestureMouseControl:
 
                 # Right hand thumb out - Left click (requires control active)
                 if self.is_thumb_up(landmarks):
-                    if self.is_control_active:
+                    if self.control_state == 'ON':
                         if current_time - self.last_click_time > self.click_cooldown:
                             pyautogui.click()
                             self.last_click_time = current_time
 
-                # Right hand pointing - Enable control if disabled, then move mouse
+                # Right hand pointing - Enable control if soft-disabled, then move mouse
                 elif self.is_pointing(landmarks):
-                    # Enable control if disabled
-                    if not self.is_control_active:
+                    # Enable control only if soft-disabled (not hard-disabled)
+                    if self.control_state == 'SOFT_DISABLED':
                         if current_time - self.last_toggle_time > self.toggle_cooldown:
-                            self.toggle_control()
+                            self.set_control_state('ON')
                             self.last_toggle_time = current_time
                         return  # Skip mouse movement on the enabling frame
+                    elif self.control_state != 'ON':
+                        return  # Hard-disabled, can't enable with pointing
                     index_tip = landmarks[8]
                     # Get finger position in normalized coordinates (0-1 range)
                     # Flip x coordinate to match mirrored display
@@ -870,15 +897,17 @@ class HandGestureMouseControl:
                     self.last_finger_x = finger_x
                     self.last_finger_y = finger_y
 
-                # Right hand open palm - Enable control if disabled, then scroll
+                # Right hand open palm - Enable control if soft-disabled, then scroll
                 # Front-facing: scroll down, Back-facing: scroll up
                 elif self.is_open_palm(landmarks):
-                    # Enable control if disabled
-                    if not self.is_control_active:
+                    # Enable control only if soft-disabled (not hard-disabled)
+                    if self.control_state == 'SOFT_DISABLED':
                         if current_time - self.last_toggle_time > self.toggle_cooldown:
-                            self.toggle_control()
+                            self.set_control_state('ON')
                             self.last_toggle_time = current_time
                         return  # Skip scrolling on the enabling frame
+                    elif self.control_state != 'ON':
+                        return  # Hard-disabled, can't enable with palm
                     # Scroll when control is active
                     if current_time - self.last_scroll_time > self.scroll_cooldown:
                         # Calculate finger curl amount (how bent the fingers are)
@@ -895,13 +924,13 @@ class HandGestureMouseControl:
 
                 # Right hand victory (two fingers) - Open Task View (requires control active)
                 elif self.is_victory(landmarks):
-                    if self.is_control_active:
+                    if self.control_state == 'ON':
                         if current_time - self.last_click_time > self.click_cooldown:
                             pyautogui.hotkey('win', 'tab')  # Open Task View
                             self.last_click_time = current_time
 
             # LEFT HAND GESTURES (require control to be active)
-            elif is_left_hand and self.is_control_active:
+            elif is_left_hand and self.control_state == 'ON':
                 current_time = time.time()
 
                 # Left hand thumb up - Nothing
@@ -970,12 +999,16 @@ class HandGestureMouseControl:
                 if both_fists and hands_far_apart:
                     both_fists_detected = True
                     if current_time - self.last_toggle_time > self.toggle_cooldown:
-                        self.toggle_control()
+                        # Both fists: ON -> HARD_DISABLED, any disabled -> ON
+                        if self.control_state == 'ON':
+                            self.set_control_state('HARD_DISABLED')
+                        else:
+                            self.set_control_state('ON')
                         self.last_toggle_time = current_time
 
             # Display toggle indicator if both fists detected
             if both_fists_detected:
-                toggle_text = "TOGGLE: " + ("Control ON" if self.is_control_active else "Control OFF")
+                toggle_text = "TOGGLE: " + ("Control ON" if self.control_state == 'ON' else "Control OFF")
                 cv2.putText(frame, toggle_text, (frame.shape[1] // 2 - 100, 30),
                           cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 255), 2)
 
@@ -1053,34 +1086,38 @@ class HandGestureMouseControl:
                         base_gesture = gesture_name.split(" (")[0]  # Remove (FRONT)/(BACK) suffix
                         if is_right_hand:
                             if base_gesture == "FIST":
-                                if self.is_control_active:
-                                    # Show hold progress
+                                if self.control_state == 'ON':
+                                    # Show hold progress for soft-disable
                                     if self.fist_hold_start_time is not None:
                                         held_time = time.time() - self.fist_hold_start_time
                                         remaining = max(0, self.fist_hold_duration - held_time)
-                                        action_text = f" - Hold {remaining:.1f}s to Disable"
+                                        action_text = f" - Hold {remaining:.1f}s to Soft Disable"
                                     else:
-                                        action_text = f" - Hold {self.fist_hold_duration:.0f}s to Disable"
+                                        action_text = f" - Hold {self.fist_hold_duration:.0f}s to Soft Disable"
                             elif base_gesture == "OPEN PALM":
-                                if not self.is_control_active:
+                                if self.control_state == 'SOFT_DISABLED':
                                     action_text = " - Enable Control"
+                                elif self.control_state == 'HARD_DISABLED':
+                                    action_text = " - (Locked - use both fists)"
                                 elif self.is_palm_facing_camera(hand_landmarks, is_right_hand=True):
                                     action_text = " - Scroll Down"
                                 else:
                                     action_text = " - Scroll Up"
                             elif base_gesture == "THUMB OUT":
-                                if self.is_control_active:
+                                if self.control_state == 'ON':
                                     action_text = " - Left Click"
                             elif base_gesture == "VICTORY":
-                                if self.is_control_active:
+                                if self.control_state == 'ON':
                                     action_text = " - Open Task View"
                             elif base_gesture == "POINTING":
-                                if not self.is_control_active:
+                                if self.control_state == 'SOFT_DISABLED':
                                     action_text = " - Enable Control"
+                                elif self.control_state == 'HARD_DISABLED':
+                                    action_text = " - (Locked - use both fists)"
                                 else:
                                     action_text = " - Mouse Move"
                         elif is_left_hand:
-                            if self.is_control_active:
+                            if self.control_state == 'ON':
                                 if base_gesture == "POINTING":
                                     action_text = " - Left Click"
                                 elif base_gesture == "VICTORY":
