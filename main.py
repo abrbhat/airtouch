@@ -272,7 +272,7 @@ class HandGestureMouseControl:
 
         Gestures:
         - Both Hands Fist (apart): Toggle mouse control on/off
-        - Right Hand Thumb Up: Left click
+        - Right Hand Thumb Out: Left click
         - Right Hand Open Palm: Scroll down
         - Right Hand Victory (2 fingers): Double click
         - Right Hand Pointing: Move mouse cursor
@@ -646,7 +646,7 @@ class HandGestureMouseControl:
     def get_gesture_name(self, landmarks):
         """Get the name of the detected gesture"""
         if self.is_thumb_up(landmarks):
-            return "THUMB UP"
+            return "THUMB OUT"
         elif self.is_fist(landmarks):
             return "FIST"
         elif self.is_pointing(landmarks):
@@ -665,31 +665,43 @@ class HandGestureMouseControl:
             return "UNKNOWN"
         
     def is_thumb_up(self, landmarks):
-        """Check if thumb is extended upward (thumb up gesture)"""
+        """Check if thumb is extended (any direction) while other fingers are closed"""
         thumb_tip = landmarks[4]
         thumb_ip = landmarks[3]
-        thumb_mcp = landmarks[2]  # Thumb MCP joint
+        thumb_mcp = landmarks[2]
+        wrist = landmarks[0]
+        index_mcp = landmarks[5]  # Base of index finger
 
-        # For thumb up, thumb tip should be clearly above thumb IP
-        thumb_vertical_extension = thumb_ip.y - thumb_tip.y
-        if thumb_vertical_extension < 0.05:  # Thumb tip not significantly above IP
+        # Calculate thumb extension (distance from thumb tip to thumb MCP)
+        dx = thumb_tip.x - thumb_mcp.x
+        dy = thumb_tip.y - thumb_mcp.y
+        thumb_length = (dx*dx + dy*dy) ** 0.5
+
+        # Thumb must be extended (tip far from MCP)
+        if thumb_length < 0.08:  # Thumb not extended enough
             return False
 
-        # Thumb tip should be above the thumb MCP joint
-        if thumb_tip.y >= thumb_mcp.y:
+        # Calculate palm center (average of wrist and index MCP)
+        palm_x = (wrist.x + index_mcp.x) / 2
+        palm_y = (wrist.y + index_mcp.y) / 2
+
+        # Thumb tip should be farther from palm center than thumb IP
+        # (indicates thumb is extended outward)
+        thumb_tip_to_palm = ((thumb_tip.x - palm_x)**2 + (thumb_tip.y - palm_y)**2) ** 0.5
+        thumb_ip_to_palm = ((thumb_ip.x - palm_x)**2 + (thumb_ip.y - palm_y)**2) ** 0.5
+        if thumb_tip_to_palm < thumb_ip_to_palm * 1.1:  # Thumb not extended outward
             return False
 
-        # Thumb tip should be above all other fingertips (thumb is highest point)
+        # Other fingers should be closed (at least 2 of 4)
         finger_tips = [8, 12, 16, 20]  # Index, Middle, Ring, Pinky
-        for tip_idx in finger_tips:
-            if thumb_tip.y >= landmarks[tip_idx].y:  # Thumb not above this fingertip
-                return False
-
-        # Other fingers should be closed (fist-like but with thumb up)
         finger_pips = [6, 10, 14, 18]
+        closed_count = 0
         for tip, pip in zip(finger_tips, finger_pips):
-            if landmarks[tip].y < landmarks[pip].y:  # Tip is above PIP (finger extended)
-                return False
+            if landmarks[tip].y >= landmarks[pip].y:  # Tip at or below PIP (closed)
+                closed_count += 1
+
+        if closed_count < 2:
+            return False
 
         return True
     
