@@ -794,8 +794,9 @@ class HandGestureMouseControl:
             if is_right_hand:
                 current_time = time.time()
 
-                # Right hand fist - Disable mouse control (requires holding for 5 seconds)
-                if self.is_fist(landmarks):
+                # Right hand fist - Disable mouse control (requires holding for 2 seconds)
+                # Exclude thumb-out gesture (fist detection is too lenient on thumb)
+                if self.is_fist(landmarks) and not self.is_thumb_up(landmarks):
                     if self.is_control_active:
                         # Start tracking fist hold time if not already
                         if self.fist_hold_start_time is None:
