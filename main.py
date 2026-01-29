@@ -1017,9 +1017,8 @@ class HandGestureMouseControl:
                             end_y = int(end_point.y * frame.shape[0])
                             cv2.line(frame, (start_x, start_y), (end_x, end_y), hand_color, 2)
                     
-                    # Process gestures if control is active
-                    if self.is_control_active:
-                        self.process_hand_gestures(hand_landmarks, handedness, frame.shape[1], frame.shape[0])
+                    # Process gestures (right hand can enable/disable control even when inactive)
+                    self.process_hand_gestures(hand_landmarks, handedness, frame.shape[1], frame.shape[0])
                     
                     # Draw gesture indicators
                     try:
