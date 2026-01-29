@@ -41,16 +41,19 @@ The entire application is in `main.py` as a single `HandGestureMouseControl` cla
 - Hand colors: Blue for left, Green for right
 - Cooldown timers prevent gesture spam
 - PyAutoGUI failsafe is disabled for smoother control
+- Palm orientation detection uses cross product of palm plane vectors
+- Gesture detection order in `get_gesture_name()` determines priority (thumb_up > fist > pointing > open_palm > victory)
 
 ## Gesture Mapping
 
-| Hand  | Gesture    | Action        |
-|-------|------------|---------------|
-| Both  | Fist (apart)| Toggle control|
-| Right | Thumb Out  | Left click    |
-| Right | Pointing   | Move cursor   |
-| Right | Open Palm  | Scroll down   |
-| Right | Victory    | Double click  |
-| Left  | Pointing   | Left click    |
-| Left  | Victory    | Win+Tab       |
-| Left  | Open Palm  | Scroll up     |
+| Hand  | Gesture         | Action                              | Notes                          |
+|-------|-----------------|-------------------------------------|--------------------------------|
+| Both  | Fist (apart)    | Toggle control on/off               | Hands must be 40% apart        |
+| Right | Fist (hold 2s)  | Disable control                     | Only when control is active    |
+| Right | Thumb Out       | Left click                          | Requires control active        |
+| Right | Pointing        | Enable control + Move cursor        | Enables if control is off      |
+| Right | Open Palm       | Enable control + Scroll             | Front=down, Back=up            |
+| Right | Victory         | Double click                        | Requires control active        |
+| Left  | Pointing        | Left click                          | Requires control active        |
+| Left  | Victory         | Win+Tab (Task View)                 | Requires control active        |
+| Left  | Open Palm       | Scroll up                           | Requires control active        |
