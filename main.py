@@ -272,10 +272,11 @@ class HandGestureMouseControl:
 
         Gestures:
         - Both Hands Fist (apart): Toggle mouse control on/off
+        - Right Hand Fist: Disable mouse control
+        - Right Hand Open Palm: Enable control + Scroll (front=down, back=up)
+        - Right Hand Pointing: Enable control + Move mouse cursor
         - Right Hand Thumb Out: Left click
-        - Right Hand Open Palm: Scroll (front=down, back=up)
         - Right Hand Victory (2 fingers): Double click
-        - Right Hand Pointing: Move mouse cursor
         - Left Hand Pointing: Left click
         - Left Hand Victory: Open Task View
         - Left Hand Open Palm: Scroll up
@@ -764,14 +765,11 @@ class HandGestureMouseControl:
     
     def process_hand_gestures(self, landmarks, handedness, frame_width, frame_height):
         """Process hand landmarks and control mouse based on hand type"""
-        if not self.is_control_active:
-            return
-
         # Determine if this is left or right hand
         # MediaPipe returns handedness as a list with category_name
         is_left_hand = False
         is_right_hand = False
-        
+
         if handedness and len(handedness) > 0:
             # Handedness is a list of ClassificationResult objects
             category_name = handedness[0].category_name if hasattr(handedness[0], 'category_name') else str(handedness[0])
@@ -779,23 +777,38 @@ class HandGestureMouseControl:
                 is_left_hand = True
             elif 'Right' in category_name or 'right' in str(category_name).lower():
                 is_right_hand = True
-        
+
         # If we can't determine, use hand position as fallback
         # Left hand typically has wrist on the left side of the frame
         if not is_left_hand and not is_right_hand:
             wrist_x = landmarks[0].x if len(landmarks) > 0 else 0.5
             is_left_hand = wrist_x < 0.5  # Left side of frame
             is_right_hand = not is_left_hand
-        
+
         try:
-            # RIGHT HAND GESTURES
+            # RIGHT HAND GESTURES - some work even when control is inactive
             if is_right_hand:
                 current_time = time.time()
 
-                # Right hand open palm - Scroll based on palm orientation
+                # Right hand fist - Disable mouse control
+                if self.is_fist(landmarks):
+                    if self.is_control_active:
+                        if current_time - self.last_toggle_time > self.toggle_cooldown:
+                            self.toggle_control()
+                            self.last_toggle_time = current_time
+                    return  # Don't process other gestures when fist
+
+                # Right hand open palm - Enable control if disabled, then scroll
                 # Front-facing: scroll down, Back-facing: scroll up
                 # Check this BEFORE thumb_up since open palm also has extended thumb
-                if self.is_open_palm(landmarks):
+                elif self.is_open_palm(landmarks):
+                    # Enable control if disabled
+                    if not self.is_control_active:
+                        if current_time - self.last_toggle_time > self.toggle_cooldown:
+                            self.toggle_control()
+                            self.last_toggle_time = current_time
+                        return  # Skip scrolling on the enabling frame
+                    # Scroll when control is active
                     if current_time - self.last_scroll_time > self.scroll_cooldown:
                         # Calculate finger curl amount (how bent the fingers are)
                         curl = self._get_finger_curl(landmarks)
@@ -809,20 +822,28 @@ class HandGestureMouseControl:
                             pyautogui.scroll(scroll_amount)   # Back-facing: scroll up
                         self.last_scroll_time = current_time
 
-                # Right hand thumb out - Left click
+                # Right hand thumb out - Left click (requires control active)
                 elif self.is_thumb_up(landmarks):
-                    if current_time - self.last_click_time > self.click_cooldown:
-                        pyautogui.click()
-                        self.last_click_time = current_time
+                    if self.is_control_active:
+                        if current_time - self.last_click_time > self.click_cooldown:
+                            pyautogui.click()
+                            self.last_click_time = current_time
 
-                # Right hand victory (two fingers) - Double click
+                # Right hand victory (two fingers) - Double click (requires control active)
                 elif self.is_victory(landmarks):
-                    if current_time - self.last_click_time > self.click_cooldown:
-                        pyautogui.doubleClick()
-                        self.last_click_time = current_time
-                
-                # Right hand pointing - Move mouse cursor (relative movement)
+                    if self.is_control_active:
+                        if current_time - self.last_click_time > self.click_cooldown:
+                            pyautogui.doubleClick()
+                            self.last_click_time = current_time
+
+                # Right hand pointing - Enable control if disabled, then move mouse
                 elif self.is_pointing(landmarks):
+                    # Enable control if disabled
+                    if not self.is_control_active:
+                        if current_time - self.last_toggle_time > self.toggle_cooldown:
+                            self.toggle_control()
+                            self.last_toggle_time = current_time
+                        return  # Skip mouse movement on the enabling frame
                     index_tip = landmarks[8]
                     # Get finger position in normalized coordinates (0-1 range)
                     # Flip x coordinate to match mirrored display
@@ -864,26 +885,26 @@ class HandGestureMouseControl:
                     self.last_finger_x = finger_x
                     self.last_finger_y = finger_y
             
-            # LEFT HAND GESTURES
-            elif is_left_hand:
+            # LEFT HAND GESTURES (require control to be active)
+            elif is_left_hand and self.is_control_active:
                 current_time = time.time()
-                
+
                 # Left hand thumb up - Nothing
                 if self.is_thumb_up(landmarks):
                     pass  # No action
-                
+
                 # Left hand pointing - Left click
                 elif self.is_pointing(landmarks):
                     if current_time - self.last_click_time > self.click_cooldown:
                         pyautogui.click()  # Left click
                         self.last_click_time = current_time
-                
+
                 # Left hand victory - Open Task View
                 elif self.is_victory(landmarks):
                     if current_time - self.last_click_time > self.click_cooldown:
                         pyautogui.hotkey('win', 'tab')  # Open Task View
                         self.last_click_time = current_time
-                
+
                 # Left hand open palm - Scroll up (speed increases as fingers bend)
                 elif self.is_open_palm(landmarks):
                     if current_time - self.last_scroll_time > self.scroll_cooldown:
@@ -892,7 +913,7 @@ class HandGestureMouseControl:
                         scroll_amount = int(self.scroll_speed * speed_multiplier)
                         pyautogui.scroll(scroll_amount)  # Scroll up
                         self.last_scroll_time = current_time
-                
+
                 # Left hand pinch - Nothing
                 elif self.is_pinch(landmarks):
                     pass  # No action
@@ -1016,24 +1037,35 @@ class HandGestureMouseControl:
                         # Determine action based on gesture and hand
                         action_text = ""
                         if is_right_hand:
-                            if self.is_thumb_up(hand_landmarks):
-                                action_text = " - Left Click"
+                            if self.is_fist(hand_landmarks):
+                                if self.is_control_active:
+                                    action_text = " - Disable Control"
                             elif self.is_open_palm(hand_landmarks):
-                                if self.is_palm_facing_camera(hand_landmarks, is_right_hand=True):
+                                if not self.is_control_active:
+                                    action_text = " - Enable Control"
+                                elif self.is_palm_facing_camera(hand_landmarks, is_right_hand=True):
                                     action_text = " - Scroll Down"
                                 else:
                                     action_text = " - Scroll Up"
+                            elif self.is_thumb_up(hand_landmarks):
+                                if self.is_control_active:
+                                    action_text = " - Left Click"
                             elif self.is_victory(hand_landmarks):
-                                action_text = " - Double Click"
+                                if self.is_control_active:
+                                    action_text = " - Double Click"
                             elif self.is_pointing(hand_landmarks):
-                                action_text = " - Mouse Move"
+                                if not self.is_control_active:
+                                    action_text = " - Enable Control"
+                                else:
+                                    action_text = " - Mouse Move"
                         elif is_left_hand:
-                            if self.is_pointing(hand_landmarks):
-                                action_text = " - Left Click"
-                            elif self.is_victory(hand_landmarks):
-                                action_text = " - Open Task View"
-                            elif self.is_open_palm(hand_landmarks):
-                                action_text = " - Scroll Up"
+                            if self.is_control_active:
+                                if self.is_pointing(hand_landmarks):
+                                    action_text = " - Left Click"
+                                elif self.is_victory(hand_landmarks):
+                                    action_text = " - Open Task View"
+                                elif self.is_open_palm(hand_landmarks):
+                                    action_text = " - Scroll Up"
                         
                         gesture_text = f"{hand_label} Hand: {gesture_name}{action_text}"
                         
