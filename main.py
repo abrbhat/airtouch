@@ -190,9 +190,13 @@ class HandGestureMouseControl:
         self.last_toggle_time = 0
         self.toggle_cooldown = 1.5  # seconds between toggle actions
 
+        # Both fists hold detection (for unlocking hard-disabled state)
+        self.both_fists_hold_start_time = None
+        self.both_fists_hold_duration = 2.0  # seconds to hold both fists to unlock
+
         # Right hand fist hold detection
         self.fist_hold_start_time = None  # When fist was first detected
-        self.fist_hold_duration = 2.0  # seconds to hold fist to disable control
+        self.fist_hold_duration = 1.0  # seconds to hold fist to soft-disable control
 
         # Corner indicator for control status
         self.cursor_indicator = CornerIndicator(self.root)
@@ -286,8 +290,8 @@ class HandGestureMouseControl:
         - Enable Mouse Control: Activate gesture control
 
         Gestures:
-        - Both Hands Fist (apart): Hard toggle (ON/LOCKED)
-        - Right Hand Fist (hold 2s): Soft disable (orange)
+        - Both Hands Fist (apart): Lock instantly / Unlock (hold 2s)
+        - Right Hand Fist (hold 1s): Soft disable (orange)
         - Right Hand Open Palm: Enable from soft + Scroll
         - Right Hand Pointing: Enable from soft + Move cursor
         - Right Hand Thumb Out: Left click
@@ -999,16 +1003,33 @@ class HandGestureMouseControl:
                 if both_fists and hands_far_apart:
                     both_fists_detected = True
                     if current_time - self.last_toggle_time > self.toggle_cooldown:
-                        # Both fists: ON -> HARD_DISABLED, any disabled -> ON
                         if self.control_state == 'ON':
+                            # Instant lock when ON
                             self.set_control_state('HARD_DISABLED')
+                            self.last_toggle_time = current_time
+                            self.both_fists_hold_start_time = None
                         else:
-                            self.set_control_state('ON')
-                        self.last_toggle_time = current_time
+                            # Require hold to unlock from disabled state
+                            if self.both_fists_hold_start_time is None:
+                                self.both_fists_hold_start_time = current_time
+                            elif current_time - self.both_fists_hold_start_time >= self.both_fists_hold_duration:
+                                self.set_control_state('ON')
+                                self.last_toggle_time = current_time
+                                self.both_fists_hold_start_time = None
+                else:
+                    # Reset hold timer when both fists not detected
+                    self.both_fists_hold_start_time = None
 
             # Display toggle indicator if both fists detected
             if both_fists_detected:
-                toggle_text = "TOGGLE: " + ("Control ON" if self.control_state == 'ON' else "Control OFF")
+                if self.control_state == 'ON':
+                    toggle_text = "LOCK"
+                elif self.both_fists_hold_start_time is not None:
+                    held_time = time.time() - self.both_fists_hold_start_time
+                    remaining = max(0, self.both_fists_hold_duration - held_time)
+                    toggle_text = f"UNLOCK: Hold {remaining:.1f}s"
+                else:
+                    toggle_text = f"UNLOCK: Hold {self.both_fists_hold_duration:.0f}s"
                 cv2.putText(frame, toggle_text, (frame.shape[1] // 2 - 100, 30),
                           cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 255), 2)
 
