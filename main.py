@@ -280,7 +280,7 @@ class HandGestureMouseControl:
         - Right Hand Open Palm: Enable control + Scroll (front=down, back=up)
         - Right Hand Pointing: Enable control + Move mouse cursor
         - Right Hand Thumb Out: Left click
-        - Right Hand Victory (2 fingers): Double click
+        - Right Hand Victory (2 fingers): Open Task View
         - Left Hand Pointing: Left click
         - Left Hand Victory: Open Task View
         - Left Hand Open Palm: Scroll up
@@ -893,11 +893,11 @@ class HandGestureMouseControl:
                             pyautogui.scroll(scroll_amount)   # Back-facing: scroll up
                         self.last_scroll_time = current_time
 
-                # Right hand victory (two fingers) - Double click (requires control active)
+                # Right hand victory (two fingers) - Open Task View (requires control active)
                 elif self.is_victory(landmarks):
                     if self.is_control_active:
                         if current_time - self.last_click_time > self.click_cooldown:
-                            pyautogui.doubleClick()
+                            pyautogui.hotkey('win', 'tab')  # Open Task View
                             self.last_click_time = current_time
 
             # LEFT HAND GESTURES (require control to be active)
@@ -1073,7 +1073,7 @@ class HandGestureMouseControl:
                                     action_text = " - Left Click"
                             elif base_gesture == "VICTORY":
                                 if self.is_control_active:
-                                    action_text = " - Double Click"
+                                    action_text = " - Open Task View"
                             elif base_gesture == "POINTING":
                                 if not self.is_control_active:
                                     action_text = " - Enable Control"

@@ -53,7 +53,7 @@ The entire application is in `main.py` as a single `HandGestureMouseControl` cla
 | Right | Thumb Out       | Left click                          | Requires control active        |
 | Right | Pointing        | Enable control + Move cursor        | Enables if control is off      |
 | Right | Open Palm       | Enable control + Scroll             | Front=down, Back=up            |
-| Right | Victory         | Double click                        | Requires control active        |
+| Right | Victory         | Win+Tab (Task View)                 | Requires control active        |
 | Left  | Pointing        | Left click                          | Requires control active        |
 | Left  | Victory         | Win+Tab (Task View)                 | Requires control active        |
 | Left  | Open Palm       | Scroll up                           | Requires control active        |
