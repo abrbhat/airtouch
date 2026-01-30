@@ -198,6 +198,10 @@ class HandGestureMouseControl:
         self.fist_hold_start_time = None  # When fist was first detected
         self.fist_hold_duration = 1.0  # seconds to hold fist to soft-disable control
 
+        # Right hand victory hold detection
+        self.victory_hold_start_time = None  # When victory was first detected
+        self.victory_hold_duration = 1.0  # seconds to hold victory to trigger task view
+
         # Corner indicator for control status
         self.cursor_indicator = CornerIndicator(self.root)
 
@@ -565,11 +569,12 @@ class HandGestureMouseControl:
             y_closed = tip.y >= pip.y
 
             # Method 2: Distance check (tip close to MCP = curled finger)
+            # Use strict threshold to avoid detecting claw gesture as fist
             dx = tip.x - mcp.x
             dy = tip.y - mcp.y
             dz = (tip.z - mcp.z) if hasattr(tip, 'z') else 0
             distance = (dx*dx + dy*dy + dz*dz) ** 0.5
-            distance_closed = distance < 0.13
+            distance_closed = distance < 0.09  # Stricter: was 0.13
 
             # Finger is closed if EITHER method indicates closed
             if not (y_closed or distance_closed):
@@ -579,16 +584,32 @@ class HandGestureMouseControl:
         thumb_tip = landmarks[4]
         thumb_ip = landmarks[3]
         thumb_mcp = landmarks[2]
+        wrist = landmarks[0]
+        index_mcp = landmarks[5]
+
+        # First check: if thumb is clearly extended outward, this is NOT a fist
+        # Calculate thumb extension distance
+        dx = thumb_tip.x - thumb_mcp.x
+        dy = thumb_tip.y - thumb_mcp.y
+        dz = (thumb_tip.z - thumb_mcp.z) if hasattr(thumb_tip, 'z') else 0
+        thumb_distance = (dx*dx + dy*dy + dz*dz) ** 0.5
+
+        # Check if thumb tip is farther from palm center than thumb IP (extended outward)
+        palm_x = (wrist.x + index_mcp.x) / 2
+        palm_y = (wrist.y + index_mcp.y) / 2
+        thumb_tip_to_palm = ((thumb_tip.x - palm_x)**2 + (thumb_tip.y - palm_y)**2) ** 0.5
+        thumb_ip_to_palm = ((thumb_ip.x - palm_x)**2 + (thumb_ip.y - palm_y)**2) ** 0.5
+
+        # If thumb is extended (long and tip farther from palm), NOT a fist
+        if thumb_distance >= 0.08 and thumb_tip_to_palm > thumb_ip_to_palm * 1.05:
+            return False
 
         # Method 1: Y-check for thumb
         thumb_y_closed = thumb_tip.y >= thumb_ip.y
 
         # Method 2: Distance check for thumb
-        dx = thumb_tip.x - thumb_mcp.x
-        dy = thumb_tip.y - thumb_mcp.y
-        dz = (thumb_tip.z - thumb_mcp.z) if hasattr(thumb_tip, 'z') else 0
-        thumb_distance = (dx*dx + dy*dy + dz*dz) ** 0.5
-        thumb_distance_closed = thumb_distance < 0.15
+        # Use strict threshold to avoid detecting claw gesture as fist
+        thumb_distance_closed = thumb_distance < 0.11  # Stricter: was 0.15
 
         if not (thumb_y_closed or thumb_distance_closed):
             return False
@@ -765,6 +786,11 @@ class HandGestureMouseControl:
         if thumb_tip_to_palm < thumb_ip_to_palm * 1.1:  # Thumb not extended outward
             return False
 
+        # Index finger must be closed (not extended) for thumb out
+        # Otherwise pointing with thumb extended would be detected as thumb out
+        if landmarks[8].y < landmarks[6].y:  # Index tip above PIP = extended
+            return False
+
         # Other fingers should be closed (at least 2 of 4)
         finger_tips = [8, 12, 16, 20]  # Index, Middle, Ring, Pinky
         finger_pips = [6, 10, 14, 18]
@@ -926,12 +952,21 @@ class HandGestureMouseControl:
                             pyautogui.scroll(scroll_amount)   # Back-facing: scroll up
                         self.last_scroll_time = current_time
 
-                # Right hand victory (two fingers) - Open Task View (requires control active)
+                # Right hand victory (two fingers) - Open Task View (requires control active, 1s hold)
                 elif self.is_victory(landmarks):
                     if self.control_state == 'ON':
-                        if current_time - self.last_click_time > self.click_cooldown:
-                            pyautogui.hotkey('win', 'tab')  # Open Task View
-                            self.last_click_time = current_time
+                        # Start tracking victory hold time if not already
+                        if self.victory_hold_start_time is None:
+                            self.victory_hold_start_time = current_time
+                        # Check if held long enough
+                        elif current_time - self.victory_hold_start_time >= self.victory_hold_duration:
+                            if current_time - self.last_click_time > self.click_cooldown:
+                                pyautogui.hotkey('win', 'tab')  # Open Task View
+                                self.last_click_time = current_time
+                                self.victory_hold_start_time = None  # Reset after triggering
+                else:
+                    # Reset victory hold timer when not making victory gesture
+                    self.victory_hold_start_time = None
 
             # LEFT HAND GESTURES (require control to be active)
             elif is_left_hand and self.control_state == 'ON':
@@ -1129,7 +1164,12 @@ class HandGestureMouseControl:
                                     action_text = " - Left Click"
                             elif base_gesture == "VICTORY":
                                 if self.control_state == 'ON':
-                                    action_text = " - Open Task View"
+                                    if self.victory_hold_start_time is not None:
+                                        held_time = time.time() - self.victory_hold_start_time
+                                        remaining = max(0, self.victory_hold_duration - held_time)
+                                        action_text = f" - Hold {remaining:.1f}s for Task View"
+                                    else:
+                                        action_text = f" - Hold {self.victory_hold_duration:.0f}s for Task View"
                             elif base_gesture == "POINTING":
                                 if self.control_state == 'SOFT_DISABLED':
                                     action_text = " - Enable Control"
